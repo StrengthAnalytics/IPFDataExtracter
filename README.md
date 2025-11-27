@@ -2,6 +2,8 @@
 
 A Flask-based REST API service for powerlifting scouting and analysis, designed to integrate with [PlatformPro](https://github.com/StrengthAnalytics/PlatformPro).
 
+**🚀 Optimized for Vercel Serverless Deployment** - Deploy for free in minutes! See [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md)
+
 ## Features
 
 - 🔍 **Lifter Search**: Fuzzy search with autocomplete for finding powerlifters
@@ -13,6 +15,7 @@ A Flask-based REST API service for powerlifting scouting and analysis, designed 
 ## Tech Stack
 
 - **Backend**: Python 3.11+ with Flask
+- **Deployment**: Vercel Serverless (recommended) or traditional server
 - **Database**: Supabase (PostgreSQL)
 - **Data Source**: [OpenPowerlifting](https://openpowerlifting.gitlab.io/opl-csv/bulk-csv.html)
 - **Data Processing**: Pandas, NumPy
@@ -405,6 +408,8 @@ python scripts/ingest_to_supabase.py
 
 ```
 IPFDataExtracter/
+├── api/
+│   └── index.py              # Vercel serverless entry point
 ├── app/
 │   ├── __init__.py           # Flask app factory
 │   ├── api/
@@ -420,10 +425,14 @@ IPFDataExtracter/
 │   └── ingest_to_supabase.py        # Data ingestion
 ├── data/                     # Data files (gitignored)
 ├── config.py                 # Configuration
-├── run.py                    # Application entry point
-├── requirements.txt          # Python dependencies
+├── run.py                    # Local dev entry point
+├── vercel.json               # Vercel configuration
+├── requirements.txt          # Python dependencies (local dev)
+├── requirements-vercel.txt   # Streamlined deps (production)
 ├── .env.example              # Environment template
-└── README.md                 # This file
+├── README.md                 # This file
+├── VERCEL_DEPLOYMENT.md      # Vercel deployment guide
+└── SETUP_GUIDE.md            # Beginner setup guide
 ```
 
 ## Development
@@ -446,6 +455,20 @@ flake8 app/ scripts/
 
 ## Deployment
 
+### Recommended: Deploy to Vercel (Serverless)
+
+**✨ Vercel is the recommended deployment platform** - it's free, fast, and optimized for this API!
+
+See **[VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md)** for complete step-by-step guide.
+
+**Quick Vercel Deploy:**
+1. Push code to GitHub
+2. Import project on [vercel.com](https://vercel.com)
+3. Add environment variables (SUPABASE_URL, SUPABASE_KEY, SECRET_KEY)
+4. Deploy!
+
+**Important**: Data ingestion runs locally, not on Vercel (see VERCEL_DEPLOYMENT.md for details).
+
 ### Environment Variables for Production
 
 ```env
@@ -458,19 +481,26 @@ CORS_ORIGINS=https://your-frontend-domain.com
 API_RATE_LIMIT=1000 per hour
 ```
 
-### Deployment Options
+### Alternative Deployment Options
 
-1. **Railway** (recommended for beginners)
+1. **Vercel** (recommended - see VERCEL_DEPLOYMENT.md)
+   - Serverless functions
+   - Free tier with generous limits
+   - Auto-scaling and CDN
+   - Perfect for this API
+
+2. **Railway** (good for traditional server)
    - Connect your GitHub repo
    - Add environment variables
    - Deploy automatically
+   - Can run data ingestion on the server
 
-2. **Heroku**
+3. **Heroku**
    - Add a `Procfile`: `web: gunicorn run:app`
    - Add `gunicorn` to requirements.txt
    - Deploy via Git
 
-3. **Docker**
+4. **Docker**
    ```dockerfile
    FROM python:3.11-slim
    WORKDIR /app

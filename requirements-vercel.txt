@@ -1,0 +1,27 @@
+# Vercel-optimized requirements (production only, no dev tools)
+
+# Flask and API
+Flask==3.0.0
+Flask-CORS==4.0.0
+Flask-Limiter==3.5.0
+
+# Database - Supabase
+supabase==2.3.0
+
+# Data Processing (lighter weight for serverless)
+numpy==1.26.2
+
+# Fuzzy matching for search
+rapidfuzz==3.5.2
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Date handling
+python-dateutil==2.8.2
+
+# HTTP requests
+requests==2.31.0
+
+# Werkzeug (Flask dependency, pinned for compatibility)
+Werkzeug==3.0.1

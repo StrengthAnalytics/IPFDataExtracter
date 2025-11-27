@@ -1,0 +1,19 @@
+# Vercel ignore file
+venv/
+env/
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+data/*.csv
+data/*.zip
+data/*.xlsx
+!data/.gitkeep
+tests/
+.pytest_cache/
+.git/
+.vscode/
+.idea/
+*.log
