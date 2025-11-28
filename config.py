@@ -1,9 +1,15 @@
 """Application configuration."""
 import os
 from datetime import datetime
-from dotenv import load_dotenv
 
-load_dotenv()
+# Only load .env file if it exists (local development)
+# In production (Vercel), environment variables are provided directly
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available (shouldn't happen with requirements.txt)
+    pass
 
 
 class Config:
