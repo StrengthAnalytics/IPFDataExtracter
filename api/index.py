@@ -1,32 +1,16 @@
 """Flask API for Vercel serverless deployment."""
-from flask import Flask, jsonify
+import sys
 import os
 
-app = Flask(__name__)
+# Add parent directory to path to import app modules
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-@app.route('/')
-def home():
-    return jsonify({
-        'status': 'healthy',
-        'service': 'IPF Data Extracter API',
-        'message': 'Flask is running on Vercel!'
-    })
+from app import create_app
 
+# Create the Flask app with production config
+app = create_app('production')
+
+# Health check endpoint (also available via blueprint)
 @app.route('/health')
-def health():
-    return jsonify({'status': 'ok'})
-
-@app.route('/api/<path:path>')
-def api_catch_all(path):
-    return jsonify({
-        'message': f'API endpoint /{path} not implemented yet',
-        'status': 'coming soon'
-    })
-
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({'error': 'Not found'}), 404
-
-@app.errorhandler(500)
-def internal_error(e):
-    return jsonify({'error': 'Internal server error'}), 500
+def health_check():
+    return {'status': 'healthy', 'service': 'IPF Data Extracter'}, 200
