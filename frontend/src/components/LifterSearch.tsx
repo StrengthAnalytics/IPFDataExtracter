@@ -14,7 +14,7 @@ export function LifterSearch({ onSelectLifter, placeholder = 'Search for a lifte
   const [isLoading, setIsLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const debounceTimer = useRef<NodeJS.Timeout>();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
