@@ -1,9 +1,12 @@
-"""Ultra-minimal test - no Flask, just plain WSGI."""
+"""Ultra-minimal test endpoint for Vercel."""
+from flask import Flask
 
-def handler(event, context):
-    """Minimal handler for Vercel."""
-    return {
-        'statusCode': 200,
-        'headers': {'Content-Type': 'application/json'},
-        'body': '{"status": "success", "message": "Python works!"}'
-    }
+app = Flask(__name__)
+
+@app.route('/')
+@app.route('/simple')
+def index():
+    return {'status': 'success', 'message': 'Python and Flask work!'}
+
+# Vercel handler
+handler = app

@@ -2,15 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/test.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "api/simple.py",
+      "src": "api/standalone.py",
       "use": "@vercel/python"
     },
     {
@@ -23,20 +15,16 @@
   ],
   "routes": [
     {
-      "src": "/simple",
-      "dest": "/api/simple.py"
-    },
-    {
-      "src": "/test",
-      "dest": "/api/test.py"
+      "src": "/standalone",
+      "dest": "/api/standalone.py"
     },
     {
       "src": "/health",
-      "dest": "/api/index.py"
+      "dest": "/api/standalone.py"
     },
     {
       "src": "/api/v1/(.*)",
-      "dest": "/api/index.py"
+      "dest": "/api/standalone.py"
     },
     {
       "src": "/assets/(.*)",
