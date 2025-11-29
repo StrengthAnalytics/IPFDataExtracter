@@ -1,6 +1,6 @@
 # IPF Data Extracter
 
-A modern React-based powerlifting scouting and analysis platform powered by Supabase, designed to integrate with [PlatformPro](https://github.com/StrengthAnalytics/PlatformPro).
+A modern React-based powerlifting scouting and analysis platform powered by Supabase.
 
 **🚀 Deploy to Vercel in minutes!** Static frontend + Supabase backend = zero configuration deployment.
 
@@ -38,11 +38,11 @@ A modern React-based powerlifting scouting and analysis platform powered by Supa
 
 ## Tech Stack
 
-- **Frontend**: React 18 + TypeScript + Tailwind CSS
+- **Frontend**: React 18 + TypeScript + Tailwind CSS + Vite
 - **Database**: Supabase (PostgreSQL)
 - **Deployment**: Vercel (static site)
 - **Data Source**: [OpenPowerlifting](https://openpowerlifting.gitlab.io/opl-csv/bulk-csv.html)
-- **Data Ingestion**: Python scripts (run locally)
+- **Data Ingestion**: Python scripts (run locally in `data-pipeline/`)
 
 ## Quick Start
 
@@ -105,8 +105,6 @@ Expected output:
 ### 5. Set Up Frontend
 
 ```bash
-cd frontend
-
 # Install dependencies
 npm install
 
@@ -174,7 +172,7 @@ CREATE TABLE lifter_records (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Aggregated lifter statistics (optional, can be generated via view)
+-- Aggregated lifter statistics
 CREATE TABLE lifter_summary (
   id BIGSERIAL PRIMARY KEY,
   name TEXT UNIQUE NOT NULL,
@@ -206,11 +204,11 @@ CREATE INDEX idx_lifter_records_date ON lifter_records(date);
 CREATE INDEX idx_lifter_records_sex_equipment_weightclass ON lifter_records(sex, equipment, weight_class_kg);
 CREATE INDEX idx_lifter_summary_name ON lifter_summary(name);
 
--- Enable Row Level Security (optional, recommended for production)
+-- Enable Row Level Security
 ALTER TABLE lifter_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lifter_summary ENABLE ROW LEVEL SECURITY;
 
--- Policy to allow read access to all (adjust as needed)
+-- Policy to allow read access to all
 CREATE POLICY "Allow public read access" ON lifter_records FOR SELECT TO anon USING (true);
 CREATE POLICY "Allow public read access" ON lifter_summary FOR SELECT TO anon USING (true);
 ```
@@ -230,7 +228,7 @@ CREATE POLICY "Allow public read access" ON lifter_summary FOR SELECT TO anon US
    - Go to [vercel.com](https://vercel.com)
    - Click "New Project"
    - Import your GitHub repository
-   - Vercel auto-detects configuration from `vercel.json`
+   - Vercel auto-detects Vite configuration
 
 3. **Add Environment Variables** in Vercel dashboard:
    - `VITE_SUPABASE_URL`: Your Supabase project URL
@@ -247,6 +245,7 @@ Data is stored in Supabase, not Vercel. To update:
 ```bash
 # On your local machine
 cd data-pipeline
+source venv/bin/activate
 python download_and_filter_data.py
 python ingest_to_supabase.py
 ```
@@ -257,24 +256,25 @@ The deployed app automatically uses the updated Supabase data.
 
 ```
 IPFDataExtracter/
-├── frontend/                  # React application
-│   ├── src/
-│   │   ├── components/        # Reusable UI components
-│   │   ├── pages/             # Page components
-│   │   ├── services/          # Supabase API service
-│   │   ├── config/            # Supabase client config
-│   │   └── types/             # TypeScript types
-│   ├── package.json
-│   └── .env.example           # Frontend environment template
-├── data-pipeline/             # Data ingestion (Python, runs locally only)
+├── src/                       # React application source
+│   ├── components/            # Reusable UI components
+│   ├── pages/                 # Page components
+│   ├── services/              # Supabase API service
+│   │   ├── api.ts             # API exports
+│   │   └── supabaseApi.ts     # Direct Supabase queries
+│   ├── config/                # Supabase client config
+│   │   └── supabase.ts        # Supabase client setup
+│   └── types/                 # TypeScript types
+├── data-pipeline/             # Data ingestion (Python, local only)
 │   ├── download_and_filter_data.py
 │   ├── ingest_to_supabase.py
 │   ├── config.py              # Data pipeline configuration
 │   ├── requirements.txt       # Python dependencies
-│   ├── .env.example           # Python environment template
 │   └── app/
 │       └── models/
 │           └── database.py    # Supabase client for ingestion
+├── package.json               # Frontend dependencies
+├── vite.config.ts             # Vite configuration
 ├── vercel.json                # Vercel deployment config
 └── README.md                  # This file
 ```
@@ -292,13 +292,12 @@ IPFDataExtracter/
 ### Frontend Development
 
 ```bash
-cd frontend
 npm run dev      # Start dev server
 npm run build    # Build for production
 npm run preview  # Preview production build
 ```
 
-### Data Scripts
+### Data Pipeline
 
 ```bash
 # Navigate to data pipeline
@@ -313,6 +312,8 @@ python download_and_filter_data.py
 # Ingest to Supabase
 python ingest_to_supabase.py
 ```
+
+See [data-pipeline/README.md](data-pipeline/README.md) for detailed instructions.
 
 ## Integration with PlatformPro
 
@@ -348,7 +349,7 @@ const MyComponent = () => {
 
 **Common issues:**
 1. Python environment not activated
-2. `.env` file missing or incorrect Supabase credentials
+2. `.env` file missing or incorrect Supabase credentials (in `data-pipeline/`)
 3. Tables not created in Supabase
 4. Network timeout (data ingestion takes 15-20 minutes)
 
@@ -357,7 +358,7 @@ const MyComponent = () => {
 **Check:**
 1. Environment variables are set in Vercel dashboard
 2. `vercel.json` is in root directory
-3. Frontend `package.json` has all dependencies
+3. `package.json` has all dependencies
 
 ## Performance
 
@@ -395,4 +396,4 @@ For issues or questions:
 
 ---
 
-**Ready to deploy?** Follow the Quick Start guide above and you'll be live in 30 minutes! 🚀
+**Ready to deploy?** Push to GitHub and import to Vercel! 🚀
