@@ -1,128 +1,130 @@
 # IPF Data Extracter
 
-A modern React-based powerlifting scouting and analysis platform powered by Supabase.
+A modern powerlifting scouting and analysis platform built with React, TypeScript, and Supabase. Analyze competition data from 150,000+ IPF meet records to scout lifters, compare performances, and discover strength percentiles.
 
-**🚀 Deploy to Vercel in minutes!** Static frontend + Supabase backend = zero configuration deployment.
+**🚀 Live Demo**: [Your Vercel URL]
 
 ## Features
 
-- 🔍 **Lifter Search**: Fast search with autocomplete for finding powerlifters
-- 📊 **Percentile Rankings**: Calculate strength percentiles by weight class, sex, and equipment
-- 🏋️ **Scouting Reports**: Compare multiple lifters side-by-side
-- 📈 **Competition History**: Track lifter performance over time
-- 🎯 **Strength Standards**: Get benchmarks from beginner to world-class
+### 🔍 Lifter Search
+Fast, fuzzy search across 40,000+ powerlifters with autocomplete. Search by name and instantly view competition history, best lifts, and performance trends.
+
+### 🏋️ Scouting & Comparison
+Compare multiple lifters side-by-side:
+- Best lifts within customizable timeframes (1, 2, or 3 years)
+- Opening attempt analysis
+- Competition strategy insights
+- Filter by equipment type and weight class
+
+### 📊 Percentile Calculator
+Calculate where your lifts rank compared to thousands of lifters:
+- Percentile rankings by sex, weight class, and equipment
+- Distribution statistics (mean, median, p25, p50, p75, p90, p95, p99)
+- Sample sizes for statistical confidence
+- Support for all lift types (squat, bench, deadlift, total)
+
+### 🎯 Strength Standards
+Discover benchmarks for your weight class:
+- Standards from beginner to world-class
+- Equipment-specific (Raw, Single-ply, Multi-ply)
+- Based on actual competition data
+- View maximum recorded lifts
+
+### 👤 Lifter Profiles
+Complete athlete profiles including:
+- Competition history with placement and federation
+- Career best lifts with dates and meet names
+- Weight class progression
+- Equipment types competed in
+- Country and biographical data
+
+## Tech Stack
+
+**Frontend:**
+- React 18 with TypeScript
+- Vite (build tool)
+- Tailwind CSS (styling)
+- React Router (navigation)
+- Deployed on Vercel (static site)
+
+**Backend:**
+- Supabase (PostgreSQL database)
+- Direct client-side queries (no API middleware)
+- Row Level Security for data protection
+- Automatic connection pooling
+
+**Data Source:**
+- OpenPowerlifting dataset
+- IPF-affiliated federations only
+- Competitions from 2022-present
+- ~150,000 competition records
+- ~40,000 unique lifters
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────┐
-│      React Frontend (Vercel)        │
-│   - TypeScript + Tailwind CSS       │
-│   - Supabase JS Client              │
+│   React Frontend (Vercel Static)   │
+│   - TypeScript + Tailwind CSS      │
+│   - Direct Supabase Queries        │
 └──────────────┬──────────────────────┘
                │
                ▼
 ┌──────────────────────────────────────┐
 │      Supabase (PostgreSQL)           │
-│   - lifter_records (150K+ records)   │
-│   - lifter_summary (aggregates)      │
-│   - Direct queries from frontend     │
+│   - lifter_records table             │
+│   - lifter_summary table             │
+│   - Row Level Security enabled       │
 └──────────────────────────────────────┘
 ```
 
 **Key Benefits:**
 - ✅ No backend server needed - Supabase handles everything
-- ✅ Deploy frontend as static site on Vercel
-- ✅ Faster performance (no API middleware)
-- ✅ Simpler architecture and maintenance
-
-## Tech Stack
-
-- **Frontend**: React 18 + TypeScript + Tailwind CSS + Vite
-- **Database**: Supabase (PostgreSQL)
-- **Deployment**: Vercel (static site)
-- **Data Source**: [OpenPowerlifting](https://openpowerlifting.gitlab.io/opl-csv/bulk-csv.html)
-- **Data Ingestion**: Python scripts (run locally in `data-pipeline/`)
+- ✅ Fast performance - direct database queries
+- ✅ Simple deployment - static site on Vercel
+- ✅ Scalable - Supabase auto-scales with usage
 
 ## Quick Start
 
-### 1. Prerequisites
+### Prerequisites
 
-- Node.js 16+ (for frontend)
-- Python 3.11+ (for data ingestion only)
+- Node.js 16+ (for frontend development)
 - Supabase account (free tier works great)
-- ~2GB disk space for data download
+- Vercel account (optional, for deployment)
 
-### 2. Clone Repository
+### 1. Clone Repository
 
 ```bash
 git clone https://github.com/StrengthAnalytics/IPFDataExtracter.git
 cd IPFDataExtracter
 ```
 
-### 3. Set Up Supabase Database
-
-1. Create account at [Supabase](https://supabase.com)
-2. Create new project
-3. Go to SQL Editor in Supabase dashboard
-4. Run the schema creation script (see `Database Schema` section below)
-5. Copy your Project URL and anon key from Settings → API
-
-### 4. Populate Database (One-Time Setup)
+### 2. Install Dependencies
 
 ```bash
-# Navigate to data pipeline
-cd data-pipeline
-
-# Set up Python environment for data ingestion
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Configure Supabase credentials
-cp .env.example .env
-# Edit .env and add:
-# SUPABASE_URL=your_supabase_url
-# SUPABASE_KEY=your_supabase_anon_key
-
-# Download and filter OpenPowerlifting data
-python download_and_filter_data.py
-
-# Ingest data to Supabase (takes 15-20 minutes)
-python ingest_to_supabase.py
-
-# Return to project root
-cd ..
-```
-
-Expected output:
-- Total records downloaded: ~1,400,000
-- After filtering (IPF federations, 2022+): ~150,000
-- Ingested to Supabase: ~150,000 records
-
-### 5. Set Up Frontend
-
-```bash
-# Install dependencies
 npm install
-
-# Configure Supabase connection
-cp .env.example .env
-# Edit .env and add:
-# VITE_SUPABASE_URL=your_supabase_url
-# VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# Run development server
-npm run dev
 ```
 
-Visit `http://localhost:5173` 🎉
+### 3. Configure Supabase
 
-## Database Schema
+Create a `.env` file in the root directory:
 
-Run this SQL in your Supabase SQL Editor:
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and add your Supabase credentials:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+Get these from: Supabase Dashboard → Project Settings → API
+
+### 4. Set Up Database
+
+Run this SQL in your Supabase SQL Editor to create the schema:
 
 ```sql
 -- Individual competition records
@@ -208,192 +210,285 @@ CREATE INDEX idx_lifter_summary_name ON lifter_summary(name);
 ALTER TABLE lifter_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lifter_summary ENABLE ROW LEVEL SECURITY;
 
--- Policy to allow read access to all
+-- Allow public read access
 CREATE POLICY "Allow public read access" ON lifter_records FOR SELECT TO anon USING (true);
 CREATE POLICY "Allow public read access" ON lifter_summary FOR SELECT TO anon USING (true);
 ```
 
+### 5. Populate Database (Optional)
+
+**Note:** If you're using this for production, you'll need to populate the database with OpenPowerlifting data. The data pipeline scripts are available but run locally, not in the deployed application.
+
+For development, you can use a sample dataset or contact the maintainers for access to a populated database.
+
+### 6. Run Development Server
+
+```bash
+npm run dev
+```
+
+Visit `http://localhost:5173` to see the app running locally.
+
 ## Deployment
 
-### Deploy to Vercel
+### Deploy to Vercel (Recommended)
 
-1. **Push to GitHub**
-   ```bash
-   git add .
-   git commit -m "Ready for deployment"
-   git push origin main
-   ```
+1. **Push code to GitHub**
 
-2. **Import to Vercel**
+2. **Import to Vercel:**
    - Go to [vercel.com](https://vercel.com)
    - Click "New Project"
    - Import your GitHub repository
    - Vercel auto-detects Vite configuration
 
 3. **Add Environment Variables** in Vercel dashboard:
-   - `VITE_SUPABASE_URL`: Your Supabase project URL
-   - `VITE_SUPABASE_ANON_KEY`: Your Supabase anon key
+   - Go to Project Settings → Environment Variables
+   - Add `VITE_SUPABASE_URL`
+   - Add `VITE_SUPABASE_ANON_KEY`
 
-4. **Deploy!**
-   - Vercel builds and deploys automatically
+4. **Deploy Settings** (should auto-detect):
+   - Framework Preset: Vite
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+   - Install Command: `npm install`
+
+5. **Deploy!**
+   - Vercel will build and deploy automatically
    - Your app will be live at `https://your-project.vercel.app`
 
-### Updating Data
+### Alternative Platforms
 
-Data is stored in Supabase, not Vercel. To update:
+This is a standard Vite static site and can be deployed to:
+- **Netlify**: Drag & drop the `dist/` folder
+- **Cloudflare Pages**: Connect GitHub repo
+- **AWS S3 + CloudFront**: Upload `dist/` folder
+- **Any static host**: Just upload the `dist/` folder after running `npm run build`
+
+## Development
+
+### Available Scripts
 
 ```bash
-# On your local machine
-cd data-pipeline
-source venv/bin/activate
-python download_and_filter_data.py
-python ingest_to_supabase.py
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build locally
+npm run preview
+
+# Lint code
+npm run lint
 ```
 
-The deployed app automatically uses the updated Supabase data.
-
-## Project Structure
+### Project Structure
 
 ```
 IPFDataExtracter/
-├── src/                       # React application source
-│   ├── components/            # Reusable UI components
-│   ├── pages/                 # Page components
-│   ├── services/              # Supabase API service
-│   │   ├── api.ts             # API exports
-│   │   └── supabaseApi.ts     # Direct Supabase queries
-│   ├── config/                # Supabase client config
-│   │   └── supabase.ts        # Supabase client setup
-│   └── types/                 # TypeScript types
-├── data-pipeline/             # Data ingestion (Python, local only)
-│   ├── download_and_filter_data.py
-│   ├── ingest_to_supabase.py
-│   ├── config.py              # Data pipeline configuration
-│   ├── requirements.txt       # Python dependencies
-│   └── app/
-│       └── models/
-│           └── database.py    # Supabase client for ingestion
-├── package.json               # Frontend dependencies
-├── vite.config.ts             # Vite configuration
-├── vercel.json                # Vercel deployment config
-└── README.md                  # This file
+├── src/
+│   ├── components/           # Reusable UI components
+│   │   ├── ConfigCheck.tsx   # Environment config validation
+│   │   ├── LifterSearch.tsx  # Autocomplete search component
+│   │   └── Navigation.tsx    # Main navigation
+│   ├── pages/                # Page components (routes)
+│   │   ├── Home.tsx          # Landing page with search
+│   │   ├── Scout.tsx         # Lifter comparison tool
+│   │   ├── LifterProfile.tsx # Individual lifter profiles
+│   │   ├── Percentile.tsx    # Percentile calculator
+│   │   └── Standards.tsx     # Strength standards
+│   ├── services/             # API layer
+│   │   ├── api.ts            # API exports
+│   │   └── supabaseApi.ts    # Supabase query functions
+│   ├── config/               # Configuration
+│   │   └── supabase.ts       # Supabase client setup
+│   ├── types/                # TypeScript type definitions
+│   │   └── index.ts
+│   ├── App.tsx               # Root application component
+│   ├── main.tsx              # Application entry point
+│   └── index.css             # Global styles (Tailwind)
+├── public/                   # Static assets
+├── dist/                     # Production build output
+├── index.html                # HTML template
+├── package.json              # Dependencies and scripts
+├── vite.config.ts            # Vite configuration
+├── tailwind.config.js        # Tailwind CSS configuration
+├── tsconfig.json             # TypeScript configuration
+└── README.md                 # This file
 ```
+
+### Code Organization
+
+**Components** (`src/components/`):
+- Self-contained, reusable UI elements
+- Props-based configuration
+- TypeScript for type safety
+
+**Pages** (`src/pages/`):
+- Full page views mapped to routes
+- Compose multiple components
+- Handle page-level state and data fetching
+
+**Services** (`src/services/`):
+- `supabaseApi.ts`: All database query logic
+- Abstracts Supabase client from components
+- Provides consistent error handling
+
+**Types** (`src/types/`):
+- TypeScript interfaces for data models
+- Ensures type safety across the application
 
 ## Data Coverage
 
 - **Federations**: IPF, USAPL, CPU, EPF, BP, and other IPF affiliates
 - **Date Range**: 2022 - Present
-- **Records**: ~150,000 competition entries
+- **Total Records**: ~150,000 competition entries
 - **Unique Lifters**: ~40,000+
+- **Update Frequency**: Data can be refreshed as needed
 - **Data Source**: [OpenPowerlifting](https://www.openpowerlifting.org/)
-
-## Development
-
-### Frontend Development
-
-```bash
-npm run dev      # Start dev server
-npm run build    # Build for production
-npm run preview  # Preview production build
-```
-
-### Data Pipeline
-
-```bash
-# Navigate to data pipeline
-cd data-pipeline
-
-# Activate Python environment
-source venv/bin/activate
-
-# Download fresh data
-python download_and_filter_data.py
-
-# Ingest to Supabase
-python ingest_to_supabase.py
-```
-
-See [data-pipeline/README.md](data-pipeline/README.md) for detailed instructions.
-
-## Integration with PlatformPro
-
-This app is designed for standalone use or integration with [PlatformPro](https://github.com/StrengthAnalytics/PlatformPro).
-
-### To integrate:
-
-```typescript
-// Import components
-import { LifterSearch } from '@/components/LifterSearch';
-import { api } from '@/services/api';
-
-// Use in your app
-const MyComponent = () => {
-  const handleSearch = async (query: string) => {
-    const results = await api.searchLifters(query);
-    // ...
-  };
-};
-```
-
-## Troubleshooting
-
-### Frontend can't connect to Supabase
-
-**Check:**
-1. Environment variables are set correctly in `.env`
-2. Supabase URL and anon key are correct
-3. Row Level Security policies allow public read access
-4. Tables exist and have data
-
-### Data ingestion fails
-
-**Common issues:**
-1. Python environment not activated
-2. `.env` file missing or incorrect Supabase credentials (in `data-pipeline/`)
-3. Tables not created in Supabase
-4. Network timeout (data ingestion takes 15-20 minutes)
-
-### Build errors in Vercel
-
-**Check:**
-1. Environment variables are set in Vercel dashboard
-2. `vercel.json` is in root directory
-3. `package.json` has all dependencies
 
 ## Performance
 
-- **Search**: < 500ms for most queries
-- **Lifter Profile**: < 300ms
+- **Initial Load**: < 2s on fast connections
+- **Search Results**: < 500ms for most queries
+- **Lifter Profile Load**: < 300ms
 - **Percentile Calculation**: < 2s (client-side calculation)
 - **Scouting Comparison**: < 1s for 2-3 lifters
 
-Supabase handles database queries efficiently with proper indexing.
+Performance is optimized through:
+- Database indexing on key columns
+- Supabase connection pooling
+- Client-side caching where appropriate
+- Vite's optimized production builds
 
-## Costs
+## Configuration
 
-**Completely free for moderate usage:**
-- Vercel: Free tier (100GB bandwidth/month)
-- Supabase: Free tier (500MB database, 50K monthly active users)
+### Environment Variables
 
-Perfect for personal use, beta testing, or small-scale production.
+**Required:**
+- `VITE_SUPABASE_URL`: Your Supabase project URL
+- `VITE_SUPABASE_ANON_KEY`: Your Supabase anonymous/public key
+
+**How to get these:**
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
+2. Select your project
+3. Go to Settings → API
+4. Copy "Project URL" → `VITE_SUPABASE_URL`
+5. Copy "Project API keys" → anon/public → `VITE_SUPABASE_ANON_KEY`
+
+### Supabase Setup
+
+**Row Level Security (RLS):**
+- Must be enabled on both tables for security
+- Policies allow public read access via anon key
+- No write access from client (data is read-only)
+
+**Connection Pooling:**
+- Handled automatically by Supabase
+- No configuration needed
+
+**Indexes:**
+- Created during schema setup
+- Optimize common query patterns
+- Keep queries fast even with 150K+ records
+
+## Troubleshooting
+
+### "Configuration Required" Warning
+
+**Problem:** Yellow warning box shows on deployed site.
+
+**Solution:** Environment variables not set in Vercel.
+1. Go to Vercel Dashboard → Project Settings → Environment Variables
+2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+3. Redeploy the application
+
+### No Search Results
+
+**Problem:** Searches return empty results.
+
+**Solution 1:** Check Supabase RLS policies:
+```sql
+-- Verify policies exist
+SELECT * FROM pg_policies WHERE tablename IN ('lifter_records', 'lifter_summary');
+
+-- If missing, create them
+CREATE POLICY "Allow public read access" ON lifter_records FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow public read access" ON lifter_summary FOR SELECT TO anon USING (true);
+```
+
+**Solution 2:** Check if data exists in tables:
+```sql
+SELECT COUNT(*) FROM lifter_records;
+SELECT COUNT(*) FROM lifter_summary;
+```
+
+### Build Errors
+
+**Problem:** `npm run build` fails.
+
+**Common causes:**
+- TypeScript errors: Run `npm run lint` to find issues
+- Missing dependencies: Delete `node_modules` and run `npm install`
+- Node version: Ensure Node.js 16+ is installed
+
+### Vercel Deployment Fails
+
+**Problem:** Vercel shows build errors.
+
+**Check:**
+1. Build Command is set to `npm run build` (NOT `cd frontend && npm run build`)
+2. Output Directory is `dist` (NOT `frontend/dist`)
+3. Framework Preset is "Vite" or "Other"
+4. Environment variables are set
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Guidelines
+
+- Use TypeScript for type safety
+- Follow existing code style (use ESLint)
+- Write meaningful commit messages
+- Test changes locally before submitting PR
+- Update documentation for new features
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Credits
 
-- Data provided by [OpenPowerlifting](https://www.openpowerlifting.org/)
-- Created for [PlatformPro](https://github.com/StrengthAnalytics/PlatformPro)
-- Built with [Supabase](https://supabase.com) and [Vercel](https://vercel.com)
+- **Data**: [OpenPowerlifting](https://www.openpowerlifting.org/)
+- **Database**: [Supabase](https://supabase.com)
+- **Hosting**: [Vercel](https://vercel.com)
+- **Framework**: [Vite](https://vitejs.dev) + [React](https://react.dev)
 
 ## Support
 
-For issues or questions:
-- Open an issue on GitHub
-- Check existing documentation
-- Email: support@strengthanalytics.com
+For issues, questions, or feature requests:
+- **GitHub Issues**: [Open an issue](https://github.com/StrengthAnalytics/IPFDataExtracter/issues)
+- **Email**: support@strengthanalytics.com
+- **Documentation**: See docs in this repository
+
+## Roadmap
+
+Future features under consideration:
+- [ ] Advanced filtering (by federation, age class, etc.)
+- [ ] Wilks/DOTS score comparisons
+- [ ] Historical performance graphs
+- [ ] Export data to CSV/Excel
+- [ ] Mobile app version
+- [ ] User accounts and saved lifters
+- [ ] Custom scouting reports
 
 ---
 
-**Ready to deploy?** Push to GitHub and import to Vercel! 🚀
+**Built with ❤️ for the powerlifting community**
