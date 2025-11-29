@@ -20,3 +20,8 @@ tests/
 
 # Python data pipeline (runs locally only, not deployed)
 data-pipeline/
+
+# No API or serverless functions
+api/
+functions/
+server/
