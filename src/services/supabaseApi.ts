@@ -289,10 +289,10 @@ export const api = {
       const column = columnMap[liftType];
       const validEvents = eventMap[liftType];
 
-      // Build query - select name and lift column to group by lifter
-      let query = supabase
+      // Build query - select name, lift column, and age_class to filter client-side
+      const { data, error } = await supabase
         .from('lifter_records')
-        .select(`name, ${column}`)
+        .select(`name, ${column}, age_class`)
         .eq('sex', sex)
         .eq('equipment', equipment)
         .eq('weight_class_kg', weightClass)
@@ -302,33 +302,49 @@ export const api = {
         .not(column, 'is', null)
         .gt(column, 0);
 
-      // Add age class filter
-      if (ageClass === 'Open') {
-        // Open includes all adult non-masters categories: 18-39 years old plus unspecified
-        query = query.or('age_class.is.null,age_class.eq."18-19",age_class.eq."20-23",age_class.eq."24-34",age_class.eq."35-39"');
-      } else if (ageClass === 'Sub-Junior') {
-        // Sub-Junior: typically 13-18
-        query = query.or('age_class.eq."5-12",age_class.eq."13-15",age_class.eq."16-17",age_class.eq."18-19"');
-      } else if (ageClass === 'Junior') {
-        // Junior: typically 19-23
-        query = query.or('age_class.eq."18-19",age_class.eq."20-23"');
-      } else if (ageClass === 'Master 1') {
-        query = query.eq('age_class', '40-44');
-      } else if (ageClass === 'Master 2') {
-        query = query.eq('age_class', '45-49');
-      } else if (ageClass === 'Master 3') {
-        query = query.or('age_class.eq."50-54",age_class.eq."55-59"');
-      } else if (ageClass === 'Master 4') {
-        query = query.or('age_class.eq."60-64",age_class.eq."65-69",age_class.eq."70-74",age_class.eq."75-79"');
+      if (error) {
+        console.error('Query error:', error);
+        continue;
       }
 
-      const { data, error } = await query;
+      // Filter by age class client-side for more control
+      let filteredData = data || [];
 
-      if (error) continue;
+      if (ageClass === 'Open') {
+        // Open includes all adult non-masters categories: 18-39 years old plus unspecified
+        const openAgeClasses = [null, '18-19', '20-23', '24-34', '35-39'];
+        filteredData = filteredData.filter((record: any) =>
+          openAgeClasses.includes(record.age_class)
+        );
+      } else if (ageClass === 'Sub-Junior') {
+        const subJuniorAgeClasses = ['5-12', '13-15', '16-17', '18-19'];
+        filteredData = filteredData.filter((record: any) =>
+          subJuniorAgeClasses.includes(record.age_class)
+        );
+      } else if (ageClass === 'Junior') {
+        const juniorAgeClasses = ['18-19', '20-23'];
+        filteredData = filteredData.filter((record: any) =>
+          juniorAgeClasses.includes(record.age_class)
+        );
+      } else if (ageClass === 'Master 1') {
+        filteredData = filteredData.filter((record: any) => record.age_class === '40-44');
+      } else if (ageClass === 'Master 2') {
+        filteredData = filteredData.filter((record: any) => record.age_class === '45-49');
+      } else if (ageClass === 'Master 3') {
+        const master3AgeClasses = ['50-54', '55-59'];
+        filteredData = filteredData.filter((record: any) =>
+          master3AgeClasses.includes(record.age_class)
+        );
+      } else if (ageClass === 'Master 4') {
+        const master4AgeClasses = ['60-64', '65-69', '70-74', '75-79'];
+        filteredData = filteredData.filter((record: any) =>
+          master4AgeClasses.includes(record.age_class)
+        );
+      }
 
       // Group by lifter name and get their best lift
       const lifterBestLifts = new Map<string, number>();
-      (data || []).forEach((record: any) => {
+      filteredData.forEach((record: any) => {
         const name = record.name;
         const value = parseFloat(record[column]);
         if (!isNaN(value)) {
