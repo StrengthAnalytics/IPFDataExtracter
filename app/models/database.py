@@ -1,37 +1,37 @@
-"""Database connection and queries using Supabase."""
+"""Supabase database connection for data ingestion scripts."""
+import os
 from supabase import create_client, Client
-from config import Config
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
-class Database:
-    """Supabase database connection manager."""
-
-    _instance = None
-    _client: Client = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(Database, cls).__new__(cls)
-        return cls._instance
+class SupabaseDB:
+    """Wrapper for Supabase client used by data ingestion scripts."""
 
     def __init__(self):
-        """Initialize Supabase client."""
-        # Don't initialize client here - do it lazily
-        pass
+        url = os.getenv('SUPABASE_URL')
+        key = os.getenv('SUPABASE_KEY')
 
-    @property
-    def client(self) -> Client:
-        """Get Supabase client (lazy initialization)."""
-        if self._client is None:
-            if not Config.SUPABASE_URL or not Config.SUPABASE_KEY:
-                raise ValueError("Supabase credentials not configured")
-            self._client = create_client(Config.SUPABASE_URL, Config.SUPABASE_KEY)
-        return self._client
+        if not url or not key:
+            raise ValueError(
+                "SUPABASE_URL and SUPABASE_KEY must be set in environment variables. "
+                "Copy .env.example to .env and add your Supabase credentials."
+            )
+
+        self.client: Client = create_client(url, key)
 
     def get_table(self, table_name: str):
-        """Get a table reference."""
+        """Get a table reference for queries.
+
+        Args:
+            table_name: Name of the table
+
+        Returns:
+            Supabase table reference
+        """
         return self.client.table(table_name)
 
 
-# Singleton instance - will initialize connection on first use, not at import
-db = Database()
+# Global database instance
+db = SupabaseDB()

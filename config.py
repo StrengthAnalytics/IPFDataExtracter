@@ -1,71 +1,55 @@
-"""Application configuration."""
+"""Configuration for data ingestion scripts."""
 import os
 from datetime import datetime
+from dotenv import load_dotenv
 
-# Only load .env file if it exists (local development)
-# In production (Vercel), environment variables are provided directly
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    # dotenv not available (shouldn't happen with requirements.txt)
-    pass
+load_dotenv()
 
 
 class Config:
-    """Base configuration."""
+    """Configuration settings for data scripts."""
 
-    # Flask
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-    FLASK_ENV = os.getenv('FLASK_ENV', 'development')
-    DEBUG = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
+    # OpenPowerlifting data source
+    OPL_CSV_URL = 'https://openpowerlifting.gitlab.io/opl-csv/files/openpowerlifting-latest.zip'
+
+    # Data filtering
+    DATA_START_DATE = datetime(2022, 1, 1)
+
+    # IPF-affiliated federations
+    IPF_FEDERATIONS = [
+        'IPF',
+        'USAPL',
+        'CPU',
+        'EPF',
+        'BP',
+        'APF',
+        'USPA',
+        'IrishPF',
+        'ScottishPL',
+        'WelshPA',
+        'EnglishPF',
+        'NIPF',
+        'GPC',
+        'IPL',
+        'WPC',
+        'AusPL',
+        'PA',
+        'NZPF',
+        'AsianPF',
+        'CommonwealthPF',
+        'NordicPF',
+        'OceaniaPF',
+        'PolishPF',
+        'RussianPF',
+        'SlovakPF',
+        'BulgarianPF',
+        'SouthAfricanPL',
+        'JapanPF',
+        'KNKFSP',
+        'UkrainePF',
+        'BelarusPF'
+    ]
 
     # Supabase
     SUPABASE_URL = os.getenv('SUPABASE_URL')
     SUPABASE_KEY = os.getenv('SUPABASE_KEY')
-
-    # API Rate Limiting
-    RATELIMIT_STORAGE_URL = "memory://"
-    RATELIMIT_DEFAULT = os.getenv('API_RATE_LIMIT', '100 per hour')
-
-    # CORS
-    CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:5173,http://localhost:3000').split(',')
-
-    # Data filtering
-    DATA_START_YEAR = int(os.getenv('DATA_START_YEAR', '2022'))
-    DATA_START_DATE = datetime(DATA_START_YEAR, 1, 1)
-
-    # IPF Federations to include
-    IPF_FEDERATIONS = os.getenv('IPF_FEDERATIONS', 'IPF,EPF,CPU,USAPL,BP').split(',')
-
-    # OpenPowerlifting data URL
-    OPL_CSV_URL = 'https://openpowerlifting.gitlab.io/opl-csv/files/openpowerlifting-latest.zip'
-
-    # Pagination
-    DEFAULT_PAGE_SIZE = 50
-    MAX_PAGE_SIZE = 200
-
-
-class DevelopmentConfig(Config):
-    """Development configuration."""
-    DEBUG = True
-
-
-class ProductionConfig(Config):
-    """Production configuration."""
-    DEBUG = False
-    RATELIMIT_DEFAULT = '1000 per hour'
-
-
-class TestingConfig(Config):
-    """Testing configuration."""
-    TESTING = True
-    DEBUG = True
-
-
-config = {
-    'development': DevelopmentConfig,
-    'production': ProductionConfig,
-    'testing': TestingConfig,
-    'default': DevelopmentConfig
-}

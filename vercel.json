@@ -1,15 +1,6 @@
 {
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
-  "rewrites": [
-    {
-      "source": "/health",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/v1/:path*",
-      "destination": "/api/index"
-    }
-  ]
+  "installCommand": "echo 'No root install needed - frontend only'"
 }
 
