@@ -278,7 +278,16 @@ export const api = {
         total: 'total_kg'
       };
 
+      // Map each lift type to the events that include that lift
+      const eventMap: Record<string, string[]> = {
+        squat: ['SBD', 'S', 'SB'],
+        bench: ['SBD', 'B', 'SB', 'BD'],
+        deadlift: ['SBD', 'D', 'BD'],
+        total: ['SBD']
+      };
+
       const column = columnMap[liftType];
+      const validEvents = eventMap[liftType];
 
       // Build query - select name and lift column to group by lifter
       let query = supabase
@@ -287,20 +296,30 @@ export const api = {
         .eq('sex', sex)
         .eq('equipment', equipment)
         .eq('weight_class_kg', weightClass)
-        .ilike('event', `%${event}%`)
+        .in('event', validEvents)  // Include all events that have this lift
         .gte('date', '2024-01-01')  // Only 2024 data
         .lte('date', '2024-12-31')
         .not(column, 'is', null)
         .gt(column, 0);
 
-      // Add age class filter - if "Open", include null values (unspecified) plus "Open" and "24-39"
+      // Add age class filter
       if (ageClass === 'Open') {
-        // For Open, we want records where age_class is null, 'Open', '24-39', or similar open categories
-        // Using .or() to combine conditions
-        query = query.or('age_class.is.null,age_class.ilike.%Open%,age_class.ilike.%24-39%');
-      } else {
-        // For specific age classes, match exactly
-        query = query.ilike('age_class', `%${ageClass}%`);
+        // Open includes all adult non-masters categories: 18-39 years old plus unspecified
+        query = query.or('age_class.is.null,age_class.eq.18-19,age_class.eq.20-23,age_class.eq.24-34,age_class.eq.35-39');
+      } else if (ageClass === 'Sub-Junior') {
+        // Sub-Junior: typically 13-18
+        query = query.or('age_class.eq.5-12,age_class.eq.13-15,age_class.eq.16-17,age_class.eq.18-19');
+      } else if (ageClass === 'Junior') {
+        // Junior: typically 19-23
+        query = query.or('age_class.eq.18-19,age_class.eq.20-23');
+      } else if (ageClass === 'Master 1') {
+        query = query.eq('age_class', '40-44');
+      } else if (ageClass === 'Master 2') {
+        query = query.eq('age_class', '45-49');
+      } else if (ageClass === 'Master 3') {
+        query = query.or('age_class.eq.50-54,age_class.eq.55-59');
+      } else if (ageClass === 'Master 4') {
+        query = query.or('age_class.eq.60-64,age_class.eq.65-69,age_class.eq.70-74,age_class.eq.75-79');
       }
 
       const { data, error } = await query;
