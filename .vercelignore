@@ -17,3 +17,6 @@ tests/
 .vscode/
 .idea/
 *.log
+
+# Python data pipeline (runs locally only, not deployed)
+data-pipeline/

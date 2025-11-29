@@ -5,8 +5,7 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Import database module from same directory
 from app.models.database import db
 
 

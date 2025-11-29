@@ -71,6 +71,9 @@ cd IPFDataExtracter
 ### 4. Populate Database (One-Time Setup)
 
 ```bash
+# Navigate to data pipeline
+cd data-pipeline
+
 # Set up Python environment for data ingestion
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
@@ -85,10 +88,13 @@ cp .env.example .env
 # SUPABASE_KEY=your_supabase_anon_key
 
 # Download and filter OpenPowerlifting data
-python scripts/download_and_filter_data.py
+python download_and_filter_data.py
 
 # Ingest data to Supabase (takes 15-20 minutes)
-python scripts/ingest_to_supabase.py
+python ingest_to_supabase.py
+
+# Return to project root
+cd ..
 ```
 
 Expected output:
@@ -240,8 +246,9 @@ Data is stored in Supabase, not Vercel. To update:
 
 ```bash
 # On your local machine
-python scripts/download_and_filter_data.py
-python scripts/ingest_to_supabase.py
+cd data-pipeline
+python download_and_filter_data.py
+python ingest_to_supabase.py
 ```
 
 The deployed app automatically uses the updated Supabase data.
@@ -255,18 +262,19 @@ IPFDataExtracter/
 │   │   ├── components/        # Reusable UI components
 │   │   ├── pages/             # Page components
 │   │   ├── services/          # Supabase API service
-│   │   ├── lib/               # Supabase client config
+│   │   ├── config/            # Supabase client config
 │   │   └── types/             # TypeScript types
 │   ├── package.json
 │   └── .env.example           # Frontend environment template
-├── scripts/                   # Data ingestion scripts (Python)
+├── data-pipeline/             # Data ingestion (Python, runs locally only)
 │   ├── download_and_filter_data.py
-│   └── ingest_to_supabase.py
-├── app/                       # Minimal Python modules for scripts
-│   └── models/
-│       └── database.py        # Supabase client for ingestion
-├── config.py                  # Configuration for data scripts
-├── requirements.txt           # Python dependencies (data ingestion only)
+│   ├── ingest_to_supabase.py
+│   ├── config.py              # Data pipeline configuration
+│   ├── requirements.txt       # Python dependencies
+│   ├── .env.example           # Python environment template
+│   └── app/
+│       └── models/
+│           └── database.py    # Supabase client for ingestion
 ├── vercel.json                # Vercel deployment config
 └── README.md                  # This file
 ```
@@ -293,14 +301,17 @@ npm run preview  # Preview production build
 ### Data Scripts
 
 ```bash
+# Navigate to data pipeline
+cd data-pipeline
+
 # Activate Python environment
 source venv/bin/activate
 
 # Download fresh data
-python scripts/download_and_filter_data.py
+python download_and_filter_data.py
 
 # Ingest to Supabase
-python scripts/ingest_to_supabase.py
+python ingest_to_supabase.py
 ```
 
 ## Integration with PlatformPro
