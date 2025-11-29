@@ -290,6 +290,7 @@ export const api = {
       const validEvents = eventMap[liftType];
 
       // Build query - select name, lift column, and age_class to filter client-side
+      // Note: Using a high limit to ensure we get all records (Supabase default is 1000)
       const { data, error } = await supabase
         .from('lifter_records')
         .select(`name, ${column}, age_class`)
@@ -300,7 +301,8 @@ export const api = {
         .gte('date', '2024-01-01')  // Only 2024 data
         .lte('date', '2024-12-31')
         .not(column, 'is', null)
-        .gt(column, 0);
+        .gt(column, 0)
+        .limit(100000);  // Remove default limit to get all records
 
       if (error) {
         console.error('Query error:', error);
