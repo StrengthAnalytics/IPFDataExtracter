@@ -5,17 +5,10 @@ import type { StrengthStandards as StrengthStandardsType } from '../types';
 export function Standards() {
   const [sex, setSex] = useState('M');
   const [weightClass, setWeightClass] = useState('93');
-  const [equipment, setEquipment] = useState('Classic');
   const [ageClass, setAgeClass] = useState('Open');
   const [standards, setStandards] = useState<StrengthStandardsType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [weightClasses, setWeightClasses] = useState<{ M: string[]; F: string[] } | null>(null);
-
-  // Map UI equipment values to database values
-  const equipmentMap: Record<string, string> = {
-    'Classic': 'Raw',
-    'Equipped': 'Single-ply'
-  };
 
   useEffect(() => {
     api.getWeightClasses().then((data) => {
@@ -33,13 +26,12 @@ export function Standards() {
 
   useEffect(() => {
     loadStandards();
-  }, [sex, weightClass, equipment, ageClass]);
+  }, [sex, weightClass, ageClass]);
 
   const loadStandards = async () => {
     setIsLoading(true);
     try {
-      const dbEquipment = equipmentMap[equipment] || equipment;
-      const data = await api.getStrengthStandards(sex, weightClass, dbEquipment, 'SBD', ageClass);
+      const data = await api.getStrengthStandards(sex, weightClass, 'Raw', 'SBD', ageClass);
       setStandards(data);
     } catch (error) {
       console.error('Error loading standards:', error);
@@ -67,22 +59,18 @@ export function Standards() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Strength Standards</h1>
-        <p className="text-gray-400">Benchmarks from beginner to world-class (2024 data only)</p>
+        <p className="text-gray-400">Classic (Raw) powerlifting standards from OpenPowerlifting data</p>
       </div>
 
       {/* Filters */}
       <div className="card mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">Age Category</label>
             <select className="input" value={ageClass} onChange={(e) => setAgeClass(e.target.value)}>
-              <option value="Open">Open</option>
-              <option value="Sub-Junior">Sub-Junior</option>
-              <option value="Junior">Junior</option>
-              <option value="Master 1">Master 1</option>
-              <option value="Master 2">Master 2</option>
-              <option value="Master 3">Master 3</option>
-              <option value="Master 4">Master 4</option>
+              <option value="Junior">Junior (14-23)</option>
+              <option value="Open">Open (24-39)</option>
+              <option value="Masters">Masters (40+)</option>
             </select>
           </div>
 
@@ -107,18 +95,6 @@ export function Standards() {
                     {wc} kg
                   </option>
                 ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Equipment</label>
-            <select
-              className="input"
-              value={equipment}
-              onChange={(e) => setEquipment(e.target.value)}
-            >
-              <option value="Classic">Classic (Raw)</option>
-              <option value="Equipped">Equipped</option>
             </select>
           </div>
         </div>
