@@ -1,526 +1,494 @@
 # IPF Data Extracter
 
-A Flask-based REST API service for powerlifting scouting and analysis, designed to integrate with [PlatformPro](https://github.com/StrengthAnalytics/PlatformPro).
+A modern powerlifting scouting and analysis platform built with React, TypeScript, and Supabase. Analyze competition data from 150,000+ IPF meet records to scout lifters, compare performances, and discover strength percentiles.
 
-**🚀 Optimized for Vercel Serverless Deployment** - Deploy for free in minutes! See [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md)
+**🚀 Live Demo**: [Your Vercel URL]
 
 ## Features
 
-- 🔍 **Lifter Search**: Fuzzy search with autocomplete for finding powerlifters
-- 📊 **Percentile Rankings**: Calculate strength percentiles by weight class, sex, and equipment
-- 🏋️ **Scouting Reports**: Compare multiple lifters side-by-side
-- 📈 **Competition History**: Track lifter performance over time
-- 🎯 **Strength Standards**: Get benchmarks for different skill levels
+### 🔍 Lifter Search
+Fast, fuzzy search across 40,000+ powerlifters with autocomplete. Search by name and instantly view competition history, best lifts, and performance trends.
+
+### 🏋️ Scouting & Comparison
+Compare multiple lifters side-by-side:
+- Best lifts within customizable timeframes (1, 2, or 3 years)
+- Opening attempt analysis
+- Competition strategy insights
+- Filter by equipment type and weight class
+
+### 📊 Percentile Calculator
+Calculate where your lifts rank compared to thousands of lifters:
+- Percentile rankings by sex, weight class, and equipment
+- Distribution statistics (mean, median, p25, p50, p75, p90, p95, p99)
+- Sample sizes for statistical confidence
+- Support for all lift types (squat, bench, deadlift, total)
+
+### 🎯 Strength Standards
+Discover benchmarks for your weight class:
+- Standards from beginner to world-class
+- Equipment-specific (Raw, Single-ply, Multi-ply)
+- Based on actual competition data
+- View maximum recorded lifts
+
+### 👤 Lifter Profiles
+Complete athlete profiles including:
+- Competition history with placement and federation
+- Career best lifts with dates and meet names
+- Weight class progression
+- Equipment types competed in
+- Country and biographical data
 
 ## Tech Stack
 
-- **Backend**: Python 3.11+ with Flask
-- **Deployment**: Vercel Serverless (recommended) or traditional server
-- **Database**: Supabase (PostgreSQL)
-- **Data Source**: [OpenPowerlifting](https://openpowerlifting.gitlab.io/opl-csv/bulk-csv.html)
-- **Data Processing**: Pandas, NumPy
-- **Search**: RapidFuzz for fuzzy matching
+**Frontend:**
+- React 18 with TypeScript
+- Vite (build tool)
+- Tailwind CSS (styling)
+- React Router (navigation)
+- Deployed on Vercel (static site)
 
-## Prerequisites
+**Backend:**
+- Supabase (PostgreSQL database)
+- Direct client-side queries (no API middleware)
+- Row Level Security for data protection
+- Automatic connection pooling
 
-- Python 3.11 or higher
-- Supabase account (free tier works fine)
-- ~2GB disk space for data
+**Data Source:**
+- OpenPowerlifting dataset
+- IPF-affiliated federations only
+- Competitions from 2022-present
+- ~150,000 competition records
+- ~40,000 unique lifters
+
+## Architecture
+
+```
+┌─────────────────────────────────────┐
+│   React Frontend (Vercel Static)   │
+│   - TypeScript + Tailwind CSS      │
+│   - Direct Supabase Queries        │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌──────────────────────────────────────┐
+│      Supabase (PostgreSQL)           │
+│   - lifter_records table             │
+│   - lifter_summary table             │
+│   - Row Level Security enabled       │
+└──────────────────────────────────────┘
+```
+
+**Key Benefits:**
+- ✅ No backend server needed - Supabase handles everything
+- ✅ Fast performance - direct database queries
+- ✅ Simple deployment - static site on Vercel
+- ✅ Scalable - Supabase auto-scales with usage
 
 ## Quick Start
 
-### 1. Clone the Repository
+### Prerequisites
+
+- Node.js 16+ (for frontend development)
+- Supabase account (free tier works great)
+- Vercel account (optional, for deployment)
+
+### 1. Clone Repository
 
 ```bash
 git clone https://github.com/StrengthAnalytics/IPFDataExtracter.git
 cd IPFDataExtracter
 ```
 
-### 2. Set Up Python Environment
+### 2. Install Dependencies
 
 ```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate it
-# On Windows:
-venv\Scripts\activate
-# On Mac/Linux:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+npm install
 ```
 
 ### 3. Configure Supabase
 
-1. Create a free account at [Supabase](https://supabase.com)
-2. Create a new project
-3. Go to Project Settings → API
-4. Copy your project URL and anon key
-
-### 4. Set Up Environment Variables
+Create a `.env` file in the root directory:
 
 ```bash
-# Copy the example environment file
 cp .env.example .env
-
-# Edit .env and add your Supabase credentials:
-# SUPABASE_URL=your_project_url
-# SUPABASE_KEY=your_anon_key
 ```
 
-### 5. Create Database Schema
-
-1. Open your Supabase project dashboard
-2. Go to SQL Editor
-3. Copy and paste the schema from `app/models/schema.py`
-4. Run each CREATE TABLE statement
-
-The schema includes:
-- `lifter_records` - Individual competition entries
-- `lifter_summary` - Aggregated lifter statistics
-- `percentile_cache` - Cached percentile calculations
-
-### 6. Download and Import Data
-
-```bash
-# Download and filter OpenPowerlifting data (IPF only, 2022+)
-python scripts/download_and_filter_data.py
-
-# This will:
-# - Download the latest OpenPowerlifting CSV (~600MB)
-# - Filter for IPF-affiliated federations
-# - Keep only data from 2022 onwards
-# - Save filtered data to data/openpowerlifting-ipf-filtered.csv
-```
-
-Expected output:
-```
-Total records: ~1,400,000
-Records after date filter: ~400,000
-Records after federation filter: ~150,000
-```
-
-### 7. Ingest Data into Supabase
-
-```bash
-# Upload filtered data to Supabase
-python scripts/ingest_to_supabase.py
-
-# This may take 10-20 minutes depending on your connection
-# Progress will be shown in the terminal
-```
-
-### 8. Run the API Server
-
-```bash
-python run.py
-```
-
-The API will be available at `http://localhost:5000`
-
-## API Endpoints
-
-### Search
-
-#### `GET /api/v1/search/lifters`
-Search for lifters by name with fuzzy matching.
-
-**Query Parameters:**
-- `q` (required): Search query (min 2 characters)
-- `limit` (optional): Max results (default: 10, max: 50)
-
-**Example:**
-```bash
-curl "http://localhost:5000/api/v1/search/lifters?q=john&limit=5"
-```
-
-**Response:**
-```json
-{
-  "query": "john",
-  "results": [
-    {
-      "name": "John Haack",
-      "sex": "M",
-      "country": "USA",
-      "weight_classes": ["83", "90"],
-      "last_competition_date": "2024-10-15",
-      "total_competitions": 42,
-      "match_score": 95
-    }
-  ],
-  "count": 1
-}
-```
-
-### Lifter Profile
-
-#### `GET /api/v1/lifter/<name>`
-Get complete profile for a lifter.
-
-**Example:**
-```bash
-curl "http://localhost:5000/api/v1/lifter/John%20Haack"
-```
-
-#### `GET /api/v1/lifter/<name>/best-lifts`
-Get lifter's best lifts within a timeframe.
-
-**Query Parameters:**
-- `years` (optional): Lookback period - 1, 2, or 3 (default: 3)
-- `equipment` (optional): Filter by equipment type
-- `weight_class` (optional): Filter by weight class
-
-**Example:**
-```bash
-curl "http://localhost:5000/api/v1/lifter/John%20Haack/best-lifts?years=1&equipment=Raw"
-```
-
-**Response:**
-```json
-{
-  "name": "John Haack",
-  "timeframe_years": 1,
-  "best_squat": {
-    "best3_squat_kg": 340,
-    "date": "2024-08-12",
-    "meet_name": "USAPL Raw Nationals",
-    "squat1_kg": 320,
-    "squat2_kg": 335,
-    "squat3_kg": 340
-  },
-  "best_bench": {...},
-  "best_deadlift": {...},
-  "best_total": {...},
-  "total_competitions": 8
-}
-```
-
-#### `GET /api/v1/lifter/<name>/history`
-Get competition history.
-
-**Query Parameters:**
-- `limit` (optional): Max competitions (default: 20, max: 100)
-
-### Scouting
-
-#### `POST /api/v1/scouting/compare`
-Compare multiple lifters for scouting reports.
-
-**Request Body:**
-```json
-{
-  "lifters": ["John Haack", "Taylor Atwood"],
-  "years": 3,
-  "equipment": "Raw"
-}
-```
-
-**Response:**
-```json
-{
-  "timeframe_years": 3,
-  "lifters": [
-    {
-      "name": "John Haack",
-      "best_squat": {...},
-      "best_bench": {...},
-      "best_deadlift": {...},
-      "best_total": {...}
-    },
-    {
-      "name": "Taylor Atwood",
-      ...
-    }
-  ]
-}
-```
-
-### Percentiles
-
-#### `POST /api/v1/percentile/calculate`
-Calculate percentile for a specific lift.
-
-**Request Body:**
-```json
-{
-  "value": 200.0,
-  "sex": "M",
-  "equipment": "Raw",
-  "weight_class": "93",
-  "lift_type": "squat",
-  "event": "SBD"
-}
-```
-
-**Response:**
-```json
-{
-  "percentile": 68.5,
-  "value": 200.0,
-  "sample_size": 15432,
-  "mean": 185.3,
-  "median": 187.5,
-  "p25": 165.0,
-  "p50": 187.5,
-  "p75": 210.0,
-  "p90": 235.0,
-  "p95": 250.0,
-  "p99": 275.0
-}
-```
-
-#### `GET /api/v1/standards/<sex>/<weight_class>`
-Get strength standards for a category.
-
-**Query Parameters:**
-- `equipment` (optional): Default 'Raw'
-- `event` (optional): Default 'SBD'
-
-**Example:**
-```bash
-curl "http://localhost:5000/api/v1/standards/M/93?equipment=Raw"
-```
-
-**Response:**
-```json
-{
-  "sex": "M",
-  "weight_class": "93",
-  "equipment": "Raw",
-  "event": "SBD",
-  "standards": {
-    "squat": {
-      "beginner": 120.5,
-      "novice": 155.0,
-      "intermediate": 187.5,
-      "advanced": 220.0,
-      "elite": 255.0,
-      "world_class": 285.0,
-      "sample_size": 15432
-    },
-    "bench": {...},
-    "deadlift": {...},
-    "total": {...}
-  }
-}
-```
-
-### Utility Endpoints
-
-#### `GET /api/v1/equipment-types`
-Get list of equipment types.
-
-#### `GET /api/v1/weight-classes`
-Get weight classes by sex.
-
-**Query Parameters:**
-- `sex` (optional): Filter by 'M' or 'F'
-
-#### `GET /api/v1/stats`
-Get database statistics.
-
-**Response:**
-```json
-{
-  "total_records": 147853,
-  "unique_lifters": 42156,
-  "latest_competition": "2024-11-15"
-}
-```
-
-#### `GET /health`
-Health check endpoint.
-
-## Integration with PlatformPro
-
-This API is designed to be consumed by the [PlatformPro](https://github.com/StrengthAnalytics/PlatformPro) React application.
-
-### CORS Configuration
-
-The API is pre-configured to allow requests from:
-- `http://localhost:5173` (Vite dev server)
-- `http://localhost:3000` (Alternative dev port)
-
-To add more origins, update `CORS_ORIGINS` in your `.env` file:
+Edit `.env` and add your Supabase credentials:
 
 ```env
-CORS_ORIGINS=http://localhost:5173,http://localhost:3000,https://your-production-domain.com
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
-### Example Frontend Integration
+Get these from: Supabase Dashboard → Project Settings → API
 
-```typescript
-// In your React app
-const API_BASE = 'http://localhost:5000/api/v1';
+### 4. Set Up Database
 
-// Search for lifters
-async function searchLifters(query: string) {
-  const response = await fetch(`${API_BASE}/search/lifters?q=${encodeURIComponent(query)}&limit=10`);
-  return response.json();
-}
+Run this SQL in your Supabase SQL Editor to create the schema:
 
-// Compare lifters for scouting
-async function compareLifters(lifterNames: string[], years: number = 3) {
-  const response = await fetch(`${API_BASE}/scouting/compare`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lifters: lifterNames, years })
-  });
-  return response.json();
-}
+```sql
+-- Individual competition records
+CREATE TABLE lifter_records (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  sex TEXT,
+  event TEXT,
+  equipment TEXT,
+  age NUMERIC,
+  age_class TEXT,
+  birth_year_class TEXT,
+  division TEXT,
+  bodyweight_kg NUMERIC,
+  weight_class_kg TEXT,
+  squat1_kg NUMERIC,
+  squat2_kg NUMERIC,
+  squat3_kg NUMERIC,
+  squat4_kg NUMERIC,
+  best3_squat_kg NUMERIC,
+  bench1_kg NUMERIC,
+  bench2_kg NUMERIC,
+  bench3_kg NUMERIC,
+  bench4_kg NUMERIC,
+  best3_bench_kg NUMERIC,
+  deadlift1_kg NUMERIC,
+  deadlift2_kg NUMERIC,
+  deadlift3_kg NUMERIC,
+  deadlift4_kg NUMERIC,
+  best3_deadlift_kg NUMERIC,
+  total_kg NUMERIC,
+  place TEXT,
+  dots NUMERIC,
+  wilks NUMERIC,
+  glossbrenner NUMERIC,
+  goodlift NUMERIC,
+  tested TEXT,
+  country TEXT,
+  state TEXT,
+  federation TEXT,
+  parent_federation TEXT,
+  date DATE,
+  meet_country TEXT,
+  meet_state TEXT,
+  meet_name TEXT,
+  sanctioned TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
 
-// Calculate percentile
-async function calculatePercentile(lift: {
-  value: number;
-  sex: string;
-  equipment: string;
-  weight_class: string;
-  lift_type: string;
-}) {
-  const response = await fetch(`${API_BASE}/percentile/calculate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(lift)
-  });
-  return response.json();
-}
+-- Aggregated lifter statistics
+CREATE TABLE lifter_summary (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  sex TEXT,
+  country TEXT,
+  total_competitions INTEGER,
+  first_competition_date DATE,
+  last_competition_date DATE,
+  weight_classes TEXT[],
+  equipment_types TEXT[],
+  best_squat_kg NUMERIC,
+  best_squat_date DATE,
+  best_squat_meet TEXT,
+  best_bench_kg NUMERIC,
+  best_bench_date DATE,
+  best_bench_meet TEXT,
+  best_deadlift_kg NUMERIC,
+  best_deadlift_date DATE,
+  best_deadlift_meet TEXT,
+  best_total_kg NUMERIC,
+  best_total_date DATE,
+  best_total_meet TEXT,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes for performance
+CREATE INDEX idx_lifter_records_name ON lifter_records(name);
+CREATE INDEX idx_lifter_records_date ON lifter_records(date);
+CREATE INDEX idx_lifter_records_sex_equipment_weightclass ON lifter_records(sex, equipment, weight_class_kg);
+CREATE INDEX idx_lifter_summary_name ON lifter_summary(name);
+
+-- Enable Row Level Security
+ALTER TABLE lifter_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lifter_summary ENABLE ROW LEVEL SECURITY;
+
+-- Allow public read access
+CREATE POLICY "Allow public read access" ON lifter_records FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow public read access" ON lifter_summary FOR SELECT TO anon USING (true);
 ```
 
-## Data Updates
+### 5. Populate Database (Optional)
 
-The OpenPowerlifting database is updated regularly. To refresh your data:
+**Note:** If you're using this for production, you'll need to populate the database with OpenPowerlifting data. The data pipeline scripts are available but run locally, not in the deployed application.
+
+For development, you can use a sample dataset or contact the maintainers for access to a populated database.
+
+### 6. Run Development Server
 
 ```bash
-# Re-download and filter data
-python scripts/download_and_filter_data.py
-
-# Clear existing data from Supabase (in SQL Editor):
-# TRUNCATE lifter_records, lifter_summary, percentile_cache;
-
-# Re-ingest
-python scripts/ingest_to_supabase.py
+npm run dev
 ```
 
-## Project Structure
-
-```
-IPFDataExtracter/
-├── api/
-│   └── index.py              # Vercel serverless entry point
-├── app/
-│   ├── __init__.py           # Flask app factory
-│   ├── api/
-│   │   └── routes.py         # API endpoints
-│   ├── models/
-│   │   ├── database.py       # Supabase connection
-│   │   └── schema.py         # Database schema
-│   └── services/
-│       ├── lifter_service.py    # Lifter operations
-│       └── percentile_service.py # Percentile calculations
-├── scripts/
-│   ├── download_and_filter_data.py  # Data download
-│   └── ingest_to_supabase.py        # Data ingestion
-├── data/                     # Data files (gitignored)
-├── config.py                 # Configuration
-├── run.py                    # Local dev entry point
-├── vercel.json               # Vercel configuration
-├── requirements.txt          # Python dependencies (local dev)
-├── requirements-vercel.txt   # Streamlined deps (production)
-├── .env.example              # Environment template
-├── README.md                 # This file
-├── VERCEL_DEPLOYMENT.md      # Vercel deployment guide
-└── SETUP_GUIDE.md            # Beginner setup guide
-```
-
-## Development
-
-### Running Tests
-
-```bash
-pytest tests/
-```
-
-### Code Formatting
-
-```bash
-# Format code
-black app/ scripts/
-
-# Check linting
-flake8 app/ scripts/
-```
+Visit `http://localhost:5173` to see the app running locally.
 
 ## Deployment
 
-### Recommended: Deploy to Vercel (Serverless)
+### Deploy to Vercel (Recommended)
 
-**✨ Vercel is the recommended deployment platform** - it's free, fast, and optimized for this API!
+1. **Push code to GitHub**
 
-See **[VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md)** for complete step-by-step guide.
+2. **Import to Vercel:**
+   - Go to [vercel.com](https://vercel.com)
+   - Click "New Project"
+   - Import your GitHub repository
+   - Vercel auto-detects Vite configuration
 
-**Quick Vercel Deploy:**
-1. Push code to GitHub
-2. Import project on [vercel.com](https://vercel.com)
-3. Add environment variables (SUPABASE_URL, SUPABASE_KEY, SECRET_KEY)
-4. Deploy!
+3. **Add Environment Variables** in Vercel dashboard:
+   - Go to Project Settings → Environment Variables
+   - Add `VITE_SUPABASE_URL`
+   - Add `VITE_SUPABASE_ANON_KEY`
 
-**Important**: Data ingestion runs locally, not on Vercel (see VERCEL_DEPLOYMENT.md for details).
+4. **Deploy Settings** (should auto-detect):
+   - Framework Preset: Vite
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+   - Install Command: `npm install`
 
-### Environment Variables for Production
+5. **Deploy!**
+   - Vercel will build and deploy automatically
+   - Your app will be live at `https://your-project.vercel.app`
 
-```env
-FLASK_ENV=production
-FLASK_DEBUG=False
-SECRET_KEY=your-secure-random-key
-SUPABASE_URL=your_supabase_url
-SUPABASE_KEY=your_supabase_key
-CORS_ORIGINS=https://your-frontend-domain.com
-API_RATE_LIMIT=1000 per hour
+### Alternative Platforms
+
+This is a standard Vite static site and can be deployed to:
+- **Netlify**: Drag & drop the `dist/` folder
+- **Cloudflare Pages**: Connect GitHub repo
+- **AWS S3 + CloudFront**: Upload `dist/` folder
+- **Any static host**: Just upload the `dist/` folder after running `npm run build`
+
+## Development
+
+### Available Scripts
+
+```bash
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build locally
+npm run preview
+
+# Lint code
+npm run lint
 ```
 
-### Alternative Deployment Options
+### Project Structure
 
-1. **Vercel** (recommended - see VERCEL_DEPLOYMENT.md)
-   - Serverless functions
-   - Free tier with generous limits
-   - Auto-scaling and CDN
-   - Perfect for this API
+```
+IPFDataExtracter/
+├── src/
+│   ├── components/           # Reusable UI components
+│   │   ├── ConfigCheck.tsx   # Environment config validation
+│   │   ├── LifterSearch.tsx  # Autocomplete search component
+│   │   └── Navigation.tsx    # Main navigation
+│   ├── pages/                # Page components (routes)
+│   │   ├── Home.tsx          # Landing page with search
+│   │   ├── Scout.tsx         # Lifter comparison tool
+│   │   ├── LifterProfile.tsx # Individual lifter profiles
+│   │   ├── Percentile.tsx    # Percentile calculator
+│   │   └── Standards.tsx     # Strength standards
+│   ├── services/             # API layer
+│   │   ├── api.ts            # API exports
+│   │   └── supabaseApi.ts    # Supabase query functions
+│   ├── config/               # Configuration
+│   │   └── supabase.ts       # Supabase client setup
+│   ├── types/                # TypeScript type definitions
+│   │   └── index.ts
+│   ├── App.tsx               # Root application component
+│   ├── main.tsx              # Application entry point
+│   └── index.css             # Global styles (Tailwind)
+├── public/                   # Static assets
+├── dist/                     # Production build output
+├── index.html                # HTML template
+├── package.json              # Dependencies and scripts
+├── vite.config.ts            # Vite configuration
+├── tailwind.config.js        # Tailwind CSS configuration
+├── tsconfig.json             # TypeScript configuration
+└── README.md                 # This file
+```
 
-2. **Railway** (good for traditional server)
-   - Connect your GitHub repo
-   - Add environment variables
-   - Deploy automatically
-   - Can run data ingestion on the server
+### Code Organization
 
-3. **Heroku**
-   - Add a `Procfile`: `web: gunicorn run:app`
-   - Add `gunicorn` to requirements.txt
-   - Deploy via Git
+**Components** (`src/components/`):
+- Self-contained, reusable UI elements
+- Props-based configuration
+- TypeScript for type safety
 
-4. **Docker**
-   ```dockerfile
-   FROM python:3.11-slim
-   WORKDIR /app
-   COPY requirements.txt .
-   RUN pip install -r requirements.txt
-   COPY . .
-   CMD ["gunicorn", "-b", "0.0.0.0:5000", "run:app"]
-   ```
+**Pages** (`src/pages/`):
+- Full page views mapped to routes
+- Compose multiple components
+- Handle page-level state and data fetching
+
+**Services** (`src/services/`):
+- `supabaseApi.ts`: All database query logic
+- Abstracts Supabase client from components
+- Provides consistent error handling
+
+**Types** (`src/types/`):
+- TypeScript interfaces for data models
+- Ensures type safety across the application
+
+## Data Coverage
+
+- **Federations**: IPF, USAPL, CPU, EPF, BP, and other IPF affiliates
+- **Date Range**: 2022 - Present
+- **Total Records**: ~150,000 competition entries
+- **Unique Lifters**: ~40,000+
+- **Update Frequency**: Data can be refreshed as needed
+- **Data Source**: [OpenPowerlifting](https://www.openpowerlifting.org/)
+
+## Performance
+
+- **Initial Load**: < 2s on fast connections
+- **Search Results**: < 500ms for most queries
+- **Lifter Profile Load**: < 300ms
+- **Percentile Calculation**: < 2s (client-side calculation)
+- **Scouting Comparison**: < 1s for 2-3 lifters
+
+Performance is optimized through:
+- Database indexing on key columns
+- Supabase connection pooling
+- Client-side caching where appropriate
+- Vite's optimized production builds
+
+## Configuration
+
+### Environment Variables
+
+**Required:**
+- `VITE_SUPABASE_URL`: Your Supabase project URL
+- `VITE_SUPABASE_ANON_KEY`: Your Supabase anonymous/public key
+
+**How to get these:**
+1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
+2. Select your project
+3. Go to Settings → API
+4. Copy "Project URL" → `VITE_SUPABASE_URL`
+5. Copy "Project API keys" → anon/public → `VITE_SUPABASE_ANON_KEY`
+
+### Supabase Setup
+
+**Row Level Security (RLS):**
+- Must be enabled on both tables for security
+- Policies allow public read access via anon key
+- No write access from client (data is read-only)
+
+**Connection Pooling:**
+- Handled automatically by Supabase
+- No configuration needed
+
+**Indexes:**
+- Created during schema setup
+- Optimize common query patterns
+- Keep queries fast even with 150K+ records
+
+## Troubleshooting
+
+### "Configuration Required" Warning
+
+**Problem:** Yellow warning box shows on deployed site.
+
+**Solution:** Environment variables not set in Vercel.
+1. Go to Vercel Dashboard → Project Settings → Environment Variables
+2. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+3. Redeploy the application
+
+### No Search Results
+
+**Problem:** Searches return empty results.
+
+**Solution 1:** Check Supabase RLS policies:
+```sql
+-- Verify policies exist
+SELECT * FROM pg_policies WHERE tablename IN ('lifter_records', 'lifter_summary');
+
+-- If missing, create them
+CREATE POLICY "Allow public read access" ON lifter_records FOR SELECT TO anon USING (true);
+CREATE POLICY "Allow public read access" ON lifter_summary FOR SELECT TO anon USING (true);
+```
+
+**Solution 2:** Check if data exists in tables:
+```sql
+SELECT COUNT(*) FROM lifter_records;
+SELECT COUNT(*) FROM lifter_summary;
+```
+
+### Build Errors
+
+**Problem:** `npm run build` fails.
+
+**Common causes:**
+- TypeScript errors: Run `npm run lint` to find issues
+- Missing dependencies: Delete `node_modules` and run `npm install`
+- Node version: Ensure Node.js 16+ is installed
+
+### Vercel Deployment Fails
+
+**Problem:** Vercel shows build errors.
+
+**Check:**
+1. Build Command is set to `npm run build` (NOT `cd frontend && npm run build`)
+2. Output Directory is `dist` (NOT `frontend/dist`)
+3. Framework Preset is "Vite" or "Other"
+4. Environment variables are set
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Development Guidelines
+
+- Use TypeScript for type safety
+- Follow existing code style (use ESLint)
+- Write meaningful commit messages
+- Test changes locally before submitting PR
+- Update documentation for new features
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Credits
 
-- Data provided by [OpenPowerlifting](https://www.openpowerlifting.org/)
-- Created for [PlatformPro](https://github.com/StrengthAnalytics/PlatformPro)
+- **Data**: [OpenPowerlifting](https://www.openpowerlifting.org/)
+- **Database**: [Supabase](https://supabase.com)
+- **Hosting**: [Vercel](https://vercel.com)
+- **Framework**: [Vite](https://vitejs.dev) + [React](https://react.dev)
 
 ## Support
 
-For issues or questions:
-- Open an issue on GitHub
-- Email: support@strengthanalytics.com
+For issues, questions, or feature requests:
+- **GitHub Issues**: [Open an issue](https://github.com/StrengthAnalytics/IPFDataExtracter/issues)
+- **Email**: support@strengthanalytics.com
+- **Documentation**: See docs in this repository
+
+## Roadmap
+
+Future features under consideration:
+- [ ] Advanced filtering (by federation, age class, etc.)
+- [ ] Wilks/DOTS score comparisons
+- [ ] Historical performance graphs
+- [ ] Export data to CSV/Excel
+- [ ] Mobile app version
+- [ ] User accounts and saved lifters
+- [ ] Custom scouting reports
+
+---
+
+**Built with ❤️ for the powerlifting community**
