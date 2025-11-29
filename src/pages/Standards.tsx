@@ -51,10 +51,10 @@ export function Standards() {
   ];
 
   const lifts = [
-    { key: 'squat', label: 'Squat', icon: '🏋️', color: 'text-green-400' },
-    { key: 'bench', label: 'Bench', icon: '💪', color: 'text-blue-400' },
-    { key: 'deadlift', label: 'Deadlift', icon: '🔥', color: 'text-red-400' },
-    { key: 'total', label: 'Total', icon: '🎯', color: 'text-purple-400' },
+    { key: 'squat', label: 'Squat', color: 'text-green-400' },
+    { key: 'bench', label: 'Bench', color: 'text-blue-400' },
+    { key: 'deadlift', label: 'Deadlift', color: 'text-red-400' },
+    { key: 'total', label: 'Total', color: 'text-purple-400' },
   ];
 
   return (
@@ -127,56 +127,55 @@ export function Standards() {
           <p className="text-gray-400 mt-4">Loading standards...</p>
         </div>
       ) : standards && standards.standards ? (
-        <div className="space-y-8">
-          {lifts.map((lift) => {
-            const liftData = standards.standards[lift.key];
-            if (!liftData) return null;
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+            {lifts.map((lift) => {
+              const liftData = standards.standards[lift.key];
+              if (!liftData) return null;
 
-            return (
-              <div key={lift.key} className="card">
-                <div className="flex items-center mb-6">
-                  <span className="text-3xl mr-3">{lift.icon}</span>
-                  <div>
-                    <h2 className={`text-2xl font-bold ${lift.color}`}>{lift.label}</h2>
+              return (
+                <div key={lift.key} className="card">
+                  <div className="mb-6">
+                    <h2 className={`text-2xl font-bold ${lift.color} mb-2`}>{lift.label}</h2>
                     <p className="text-sm text-gray-500">
-                      Based on {liftData.sample_size.toLocaleString()} lifters • Max: {liftData.max_recorded} kg
+                      {liftData.sample_size.toLocaleString()} lifters in 2024 • Max: {liftData.max_recorded} kg
                     </p>
                   </div>
-                </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-700">
-                        <th className="text-left py-3 px-4 text-gray-400 font-medium">Level</th>
-                        <th className="text-left py-3 px-4 text-gray-400 font-medium">Percentile</th>
-                        <th className="text-right py-3 px-4 text-gray-400 font-medium">Weight (kg)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {levels.map((level) => {
-                        const weight = liftData[level.key as keyof typeof liftData];
-                        return (
-                          <tr key={level.key} className="border-b border-gray-800">
-                            <td className="py-3 px-4">
-                              <span className={`inline-block px-3 py-1 rounded-full text-white text-sm ${level.color}`}>
-                                {level.label}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-gray-400">{level.percentile} percentile</td>
-                            <td className="py-3 px-4 text-right">
-                              <span className="text-2xl font-bold text-white">{weight}</span>
-                              <span className="text-gray-400 ml-2">kg</span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-700">
+                          <th className="text-left py-3 px-4 text-gray-400 font-medium">Level</th>
+                          <th className="text-left py-3 px-4 text-gray-400 font-medium">Percentile</th>
+                          <th className="text-right py-3 px-4 text-gray-400 font-medium">Weight (kg)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {levels.map((level) => {
+                          const weight = liftData[level.key as keyof typeof liftData];
+                          return (
+                            <tr key={level.key} className="border-b border-gray-800">
+                              <td className="py-3 px-4">
+                                <span className={`inline-block px-3 py-1 rounded-full text-white text-sm ${level.color}`}>
+                                  {level.label}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-gray-400">{level.percentile} percentile</td>
+                              <td className="py-3 px-4 text-right">
+                                <span className="text-2xl font-bold text-white">{weight}</span>
+                                <span className="text-gray-400 ml-2">kg</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
 
           {/* Legend */}
           <div className="card">
@@ -193,7 +192,7 @@ export function Standards() {
               ))}
             </div>
           </div>
-        </div>
+        </>
       ) : (
         <div className="card text-center py-16">
           <div className="text-5xl mb-4">📈</div>

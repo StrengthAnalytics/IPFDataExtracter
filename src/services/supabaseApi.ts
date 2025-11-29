@@ -280,10 +280,10 @@ export const api = {
 
       const column = columnMap[liftType];
 
-      // Build query
+      // Build query - select name and lift column to group by lifter
       let query = supabase
         .from('lifter_records')
-        .select(column)
+        .select(`name, ${column}`)
         .eq('sex', sex)
         .eq('equipment', equipment)
         .eq('weight_class_kg', weightClass)
@@ -307,7 +307,21 @@ export const api = {
 
       if (error) continue;
 
-      const values = (data || []).map((r: any) => parseFloat(r[column])).filter(v => !isNaN(v));
+      // Group by lifter name and get their best lift
+      const lifterBestLifts = new Map<string, number>();
+      (data || []).forEach((record: any) => {
+        const name = record.name;
+        const value = parseFloat(record[column]);
+        if (!isNaN(value)) {
+          const currentBest = lifterBestLifts.get(name) || 0;
+          if (value > currentBest) {
+            lifterBestLifts.set(name, value);
+          }
+        }
+      });
+
+      // Get array of best lifts (one per lifter)
+      const values = Array.from(lifterBestLifts.values());
 
       if (values.length === 0) continue;
 
