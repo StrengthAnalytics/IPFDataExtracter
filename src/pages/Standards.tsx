@@ -49,12 +49,11 @@ export function Standards() {
   };
 
   const levels = [
-    { key: 'beginner', label: 'Beginner', color: 'bg-gray-600', percentile: '10th' },
-    { key: 'novice', label: 'Novice', color: 'bg-blue-600', percentile: '25th' },
-    { key: 'intermediate', label: 'Intermediate', color: 'bg-green-600', percentile: '50th' },
-    { key: 'advanced', label: 'Advanced', color: 'bg-yellow-600', percentile: '75th' },
-    { key: 'elite', label: 'Elite', color: 'bg-orange-600', percentile: '90th' },
-    { key: 'world_class', label: 'World Class', color: 'bg-purple-600', percentile: '95th' },
+    { key: 'average', label: 'Average', color: 'bg-gray-600', percentile: '50th' },
+    { key: 'good', label: 'Good', color: 'bg-blue-600', percentile: '75th' },
+    { key: 'strong', label: 'Strong', color: 'bg-green-600', percentile: '90th' },
+    { key: 'elite', label: 'Elite', color: 'bg-orange-600', percentile: '95th' },
+    { key: 'world_class', label: 'World Class', color: 'bg-purple-600', percentile: '99th' },
   ];
 
   const lifts = [
@@ -133,27 +132,26 @@ export function Standards() {
         </div>
       ) : standards && standards.standards ? (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-6 mb-8">
             {lifts.map((lift) => {
               const liftData = standards.standards[lift.key];
               if (!liftData) return null;
 
               return (
                 <div key={lift.key} className="card">
-                  <div className="mb-6">
-                    <h2 className={`text-2xl font-bold ${lift.color} mb-2`}>{lift.label}</h2>
-                    <p className="text-sm text-gray-500">
+                  <div className="mb-4">
+                    <h2 className={`text-xl font-bold ${lift.color} mb-1`}>{lift.label}</h2>
+                    <p className="text-xs text-gray-500">
                       {liftData.sample_size.toLocaleString()} lifters in 2024 • Max: {liftData.max_recorded} kg
                     </p>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <div>
+                    <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-700">
-                          <th className="text-left py-3 px-4 text-gray-400 font-medium">Level</th>
-                          <th className="text-left py-3 px-4 text-gray-400 font-medium">Percentile</th>
-                          <th className="text-right py-3 px-4 text-gray-400 font-medium">Weight (kg)</th>
+                          <th className="text-left py-2 px-2 text-gray-400 font-medium text-xs">Level</th>
+                          <th className="text-right py-2 px-2 text-gray-400 font-medium text-xs">Weight</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -161,15 +159,16 @@ export function Standards() {
                           const weight = liftData[level.key as keyof typeof liftData];
                           return (
                             <tr key={level.key} className="border-b border-gray-800">
-                              <td className="py-3 px-4">
-                                <span className={`inline-block px-3 py-1 rounded-full text-white text-sm ${level.color}`}>
-                                  {level.label}
-                                </span>
+                              <td className="py-2 px-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-block w-2 h-2 rounded-full ${level.color}`}></span>
+                                  <span className="text-white text-xs">{level.label}</span>
+                                  <span className="text-gray-500 text-xs">({level.percentile})</span>
+                                </div>
                               </td>
-                              <td className="py-3 px-4 text-gray-400">{level.percentile} percentile</td>
-                              <td className="py-3 px-4 text-right">
-                                <span className="text-2xl font-bold text-white">{weight}</span>
-                                <span className="text-gray-400 ml-2">kg</span>
+                              <td className="py-2 px-2 text-right">
+                                <span className="text-lg font-bold text-white">{weight}</span>
+                                <span className="text-gray-400 text-xs ml-1">kg</span>
                               </td>
                             </tr>
                           );
