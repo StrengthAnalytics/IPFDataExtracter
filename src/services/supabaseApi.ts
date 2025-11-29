@@ -258,12 +258,14 @@ export const api = {
 
   /**
    * Get strength standards for a category
+   * Only uses 2024 data for current standards
    */
   async getStrengthStandards(
     sex: string,
     weightClass: string,
     equipment = 'Raw',
-    event = 'SBD'
+    event = 'SBD',
+    ageClass = 'Open'
   ): Promise<StrengthStandards> {
     const liftTypes = ['squat', 'bench', 'deadlift', 'total'];
     const standards: any = {};
@@ -278,15 +280,30 @@ export const api = {
 
       const column = columnMap[liftType];
 
-      const { data, error } = await supabase
+      // Build query
+      let query = supabase
         .from('lifter_records')
         .select(column)
         .eq('sex', sex)
         .eq('equipment', equipment)
         .eq('weight_class_kg', weightClass)
         .ilike('event', `%${event}%`)
+        .gte('date', '2024-01-01')  // Only 2024 data
+        .lte('date', '2024-12-31')
         .not(column, 'is', null)
         .gt(column, 0);
+
+      // Add age class filter - if "Open", include null values (unspecified) plus "Open" and "24-39"
+      if (ageClass === 'Open') {
+        // For Open, we want records where age_class is null, 'Open', '24-39', or similar open categories
+        // Using .or() to combine conditions
+        query = query.or('age_class.is.null,age_class.ilike.%Open%,age_class.ilike.%24-39%');
+      } else {
+        // For specific age classes, match exactly
+        query = query.ilike('age_class', `%${ageClass}%`);
+      }
+
+      const { data, error } = await query;
 
       if (error) continue;
 
