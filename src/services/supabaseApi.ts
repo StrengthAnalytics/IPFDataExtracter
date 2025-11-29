@@ -305,21 +305,21 @@ export const api = {
       // Add age class filter
       if (ageClass === 'Open') {
         // Open includes all adult non-masters categories: 18-39 years old plus unspecified
-        query = query.or('age_class.is.null,age_class.eq.18-19,age_class.eq.20-23,age_class.eq.24-34,age_class.eq.35-39');
+        query = query.or('age_class.is.null,age_class.in.("18-19","20-23","24-34","35-39")');
       } else if (ageClass === 'Sub-Junior') {
         // Sub-Junior: typically 13-18
-        query = query.or('age_class.eq.5-12,age_class.eq.13-15,age_class.eq.16-17,age_class.eq.18-19');
+        query = query.or('age_class.in.("5-12","13-15","16-17","18-19")');
       } else if (ageClass === 'Junior') {
         // Junior: typically 19-23
-        query = query.or('age_class.eq.18-19,age_class.eq.20-23');
+        query = query.or('age_class.in.("18-19","20-23")');
       } else if (ageClass === 'Master 1') {
         query = query.eq('age_class', '40-44');
       } else if (ageClass === 'Master 2') {
         query = query.eq('age_class', '45-49');
       } else if (ageClass === 'Master 3') {
-        query = query.or('age_class.eq.50-54,age_class.eq.55-59');
+        query = query.or('age_class.in.("50-54","55-59")');
       } else if (ageClass === 'Master 4') {
-        query = query.or('age_class.eq.60-64,age_class.eq.65-69,age_class.eq.70-74,age_class.eq.75-79');
+        query = query.or('age_class.in.("60-64","65-69","70-74","75-79")');
       }
 
       const { data, error } = await query;

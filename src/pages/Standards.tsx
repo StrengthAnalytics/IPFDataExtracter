@@ -5,11 +5,17 @@ import type { StrengthStandards as StrengthStandardsType } from '../types';
 export function Standards() {
   const [sex, setSex] = useState('M');
   const [weightClass, setWeightClass] = useState('93');
-  const [equipment, setEquipment] = useState('Raw');
+  const [equipment, setEquipment] = useState('Classic');
   const [ageClass, setAgeClass] = useState('Open');
   const [standards, setStandards] = useState<StrengthStandardsType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [weightClasses, setWeightClasses] = useState<{ M: string[]; F: string[] } | null>(null);
+
+  // Map UI equipment values to database values
+  const equipmentMap: Record<string, string> = {
+    'Classic': 'Raw',
+    'Equipped': 'Single-ply'
+  };
 
   useEffect(() => {
     api.getWeightClasses().then((data) => {
@@ -32,7 +38,8 @@ export function Standards() {
   const loadStandards = async () => {
     setIsLoading(true);
     try {
-      const data = await api.getStrengthStandards(sex, weightClass, equipment, 'SBD', ageClass);
+      const dbEquipment = equipmentMap[equipment] || equipment;
+      const data = await api.getStrengthStandards(sex, weightClass, dbEquipment, 'SBD', ageClass);
       setStandards(data);
     } catch (error) {
       console.error('Error loading standards:', error);
@@ -111,10 +118,8 @@ export function Standards() {
               value={equipment}
               onChange={(e) => setEquipment(e.target.value)}
             >
-              <option value="Raw">Raw</option>
-              <option value="Wraps">Wraps</option>
-              <option value="Single-ply">Single-ply</option>
-              <option value="Multi-ply">Multi-ply</option>
+              <option value="Classic">Classic (Raw)</option>
+              <option value="Equipped">Equipped</option>
             </select>
           </div>
         </div>
