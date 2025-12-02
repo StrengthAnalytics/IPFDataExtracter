@@ -38,6 +38,34 @@ export function Scout() {
     }).catch(err => console.error('Error loading weight classes:', err));
   }, []);
 
+  // Auto-update comparison when filters or lifters change
+  useEffect(() => {
+    if (selectedLifters.length < 2) {
+      setComparisonData(null);
+      return;
+    }
+
+    const fetchComparison = async () => {
+      setIsLoading(true);
+      try {
+        const result = await api.compareLifters(
+          selectedLifters,
+          startDate || undefined,
+          endDate || undefined,
+          undefined,
+          weightClass || undefined
+        );
+        setComparisonData(result.lifters);
+      } catch (error) {
+        console.error('Comparison error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchComparison();
+  }, [selectedLifters, startDate, endDate, weightClass]);
+
   const handleAddLifter = (lifter: LifterSearchResult) => {
     if (!selectedLifters.includes(lifter.name) && selectedLifters.length < 10) {
       setSelectedLifters([...selectedLifters, lifter.name]);
@@ -46,30 +74,6 @@ export function Scout() {
 
   const handleRemoveLifter = (name: string) => {
     setSelectedLifters(selectedLifters.filter(n => n !== name));
-    if (selectedLifters.length === 1) {
-      setComparisonData(null);
-    }
-  };
-
-  const handleCompare = async () => {
-    if (selectedLifters.length < 2) return;
-
-    setIsLoading(true);
-    try {
-      const result = await api.compareLifters(
-        selectedLifters,
-        startDate || undefined,
-        endDate || undefined,
-        undefined,
-        weightClass || undefined
-      );
-      setComparisonData(result.lifters);
-    } catch (error) {
-      console.error('Comparison error:', error);
-      alert('Error comparing lifters. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const formatWeight = (kg?: number) => kg ? `${kg} kg` : '-';
@@ -215,13 +219,12 @@ export function Scout() {
             <h2 className="text-lg font-semibold text-white">
               Selected Lifters ({selectedLifters.length})
             </h2>
-            <button
-              onClick={handleCompare}
-              disabled={selectedLifters.length < 2 || isLoading}
-              className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Comparing...' : 'Compare Lifters'}
-            </button>
+            {isLoading && (
+              <div className="flex items-center gap-2 text-gray-400">
+                <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
+                <span>Updating...</span>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {selectedLifters.map((name) => (
@@ -236,6 +239,11 @@ export function Scout() {
               </div>
             ))}
           </div>
+          {selectedLifters.length === 1 && (
+            <div className="mt-3 text-sm text-gray-400">
+              Add at least one more lifter to see comparison
+            </div>
+          )}
         </div>
       )}
 

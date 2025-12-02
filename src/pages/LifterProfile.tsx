@@ -250,6 +250,49 @@ export function LifterProfile() {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="card mb-8">
+        <h3 className="text-lg font-semibold text-white mb-4">Filter Competition History</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Weight Class</label>
+            <select
+              className="input"
+              value={weightClass}
+              onChange={(e) => setWeightClass(e.target.value)}
+            >
+              <option value="">All weight classes</option>
+              {weightClasses.map((wc) => (
+                <option key={wc} value={wc}>{wc} kg</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">Start Date</label>
+            <input
+              type="date"
+              className="input"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-2">End Date</label>
+            <input
+              type="date"
+              className="input"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        </div>
+        {(weightClass || startDate || endDate) && (
+          <div className="mt-3 text-xs text-gray-400">
+            Showing {getFilteredAndSortedCompetitions(profile.competitions).length} of {profile.competitions.length} competitions
+          </div>
+        )}
+      </div>
+
       {/* Competition History */}
       <div className="card">
         <h3 className="text-xl font-semibold text-white mb-4">Competition History</h3>
@@ -315,26 +358,34 @@ export function LifterProfile() {
             </thead>
             <tbody>
               {profile.competitions && profile.competitions.length > 0 ? (
-                getSortedCompetitions(profile.competitions).map((comp, idx) => (
-                  <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50">
-                    <td className="py-3 px-4 text-gray-300">
-                      {new Date(comp.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                getFilteredAndSortedCompetitions(profile.competitions).length > 0 ? (
+                  getFilteredAndSortedCompetitions(profile.competitions).map((comp, idx) => (
+                    <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50">
+                      <td className="py-3 px-4 text-gray-300">
+                        {new Date(comp.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="text-white">{comp.meet_name}</div>
+                        <div className="text-xs text-gray-500">
+                          {comp.equipment} • {comp.weight_class_kg} kg ({comp.bodyweight_kg} kg)
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-gray-400">{comp.federation}</td>
+                      <td className="py-3 px-4 text-center text-green-400">{formatWeight(comp.best3_squat_kg)}</td>
+                      <td className="py-3 px-4 text-center text-blue-400">{formatWeight(comp.best3_bench_kg)}</td>
+                      <td className="py-3 px-4 text-center text-red-400">{formatWeight(comp.best3_deadlift_kg)}</td>
+                      <td className="py-3 px-4 text-center text-purple-400 font-semibold">{formatWeight(comp.total_kg)}</td>
+                      <td className="py-3 px-4 text-center text-yellow-400">{comp.goodlift?.toFixed(2) || '-'}</td>
+                      <td className="py-3 px-4 text-center text-gray-300">{comp.place || '-'}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-gray-500">
+                      No competitions match the selected filters
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="text-white">{comp.meet_name}</div>
-                      <div className="text-xs text-gray-500">
-                        {comp.equipment} • {comp.weight_class_kg} kg ({comp.bodyweight_kg} kg)
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-gray-400">{comp.federation}</td>
-                    <td className="py-3 px-4 text-center text-green-400">{formatWeight(comp.best3_squat_kg)}</td>
-                    <td className="py-3 px-4 text-center text-blue-400">{formatWeight(comp.best3_bench_kg)}</td>
-                    <td className="py-3 px-4 text-center text-red-400">{formatWeight(comp.best3_deadlift_kg)}</td>
-                    <td className="py-3 px-4 text-center text-purple-400 font-semibold">{formatWeight(comp.total_kg)}</td>
-                    <td className="py-3 px-4 text-center text-yellow-400">{comp.goodlift?.toFixed(2) || '-'}</td>
-                    <td className="py-3 px-4 text-center text-gray-300">{comp.place || '-'}</td>
                   </tr>
-                ))
+                )
               ) : (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-gray-500">
