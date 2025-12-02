@@ -23,26 +23,42 @@ class APIError extends Error {
 
 export const api = {
   /**
-   * Search for lifters by name with fuzzy matching using pg_trgm
+   * Search for lifters by name with optional fuzzy matching using pg_trgm
    */
-  async searchLifters(query: string, limit = 10, weightClass?: string): Promise<{ query: string; results: LifterSearchResult[]; count: number }> {
+  async searchLifters(query: string, limit = 10, weightClass?: string, useFuzzySearch = false): Promise<{ query: string; results: LifterSearchResult[]; count: number }> {
     if (query.length < 2) {
       return { query, results: [], count: 0 };
     }
 
-    // Use pg_trgm similarity search for fuzzy matching with typo tolerance
-    // This requires:
-    // 1. pg_trgm extension enabled (migrations/001_enable_pg_trgm.sql)
-    // 2. search_lifters_by_similarity function (migrations/002_add_fuzzy_search_function.sql)
-    const { data, error } = await supabase.rpc('search_lifters_by_similarity', {
-      search_query: query.toLowerCase(),
-      similarity_threshold: 0.1, // Lower = more fuzzy (0.1 is quite permissive)
-      result_limit: limit * 3 // Get extra results for weight class filtering
-    });
+    let data: any[];
+    let error: any;
+
+    if (useFuzzySearch) {
+      // Use pg_trgm similarity search for fuzzy matching with typo tolerance
+      // This requires:
+      // 1. pg_trgm extension enabled (migrations/001_enable_pg_trgm.sql)
+      // 2. search_lifters_by_similarity function (migrations/002_add_fuzzy_search_function.sql)
+      const response = await supabase.rpc('search_lifters_by_similarity', {
+        search_query: query.toLowerCase(),
+        similarity_threshold: 0.1, // Lower = more fuzzy (0.1 is quite permissive)
+        result_limit: limit * 3 // Get extra results for weight class filtering
+      });
+      data = response.data || [];
+      error = response.error;
+    } else {
+      // Use exact substring matching (faster, no typo tolerance)
+      const response = await supabase
+        .from('lifter_summary')
+        .select('*')
+        .ilike('name', `%${query}%`)
+        .limit(limit * 2);
+      data = response.data || [];
+      error = response.error;
+    }
 
     if (error) throw new APIError(500, error.message);
 
-    let results: LifterSearchResult[] = (data || []).map((lifter: any) => ({
+    let results: LifterSearchResult[] = data.map((lifter: any) => ({
       name: lifter.name,
       sex: lifter.sex,
       country: lifter.country || 'Unknown',
@@ -50,7 +66,7 @@ export const api = {
       equipment_types: lifter.equipment_types || [],
       last_competition_date: lifter.last_competition_date,
       total_competitions: lifter.total_competitions || 0,
-      match_score: lifter.similarity_score // Use database similarity score
+      match_score: useFuzzySearch ? lifter.similarity_score : this.calculateMatchScore(lifter.name, query)
     }));
 
     // Filter by weight class if specified
@@ -60,8 +76,12 @@ export const api = {
       );
     }
 
-    // Results are already sorted by similarity score from the database
-    // Just limit after filtering
+    // Sort by match score if not using fuzzy search (fuzzy already sorted)
+    if (!useFuzzySearch) {
+      results.sort((a, b) => b.match_score - a.match_score);
+    }
+
+    // Limit results after filtering
     results = results.slice(0, limit);
 
     return {
@@ -69,6 +89,26 @@ export const api = {
       results,
       count: results.length
     };
+  },
+
+  /**
+   * Calculate match score for exact search (non-fuzzy)
+   */
+  calculateMatchScore(name: string, query: string): number {
+    const nameLower = name.toLowerCase();
+    const queryLower = query.toLowerCase();
+
+    if (nameLower === queryLower) return 100;
+    if (nameLower.startsWith(queryLower)) return 90;
+    if (nameLower.includes(queryLower)) return 70;
+
+    // Simple character overlap score
+    let matches = 0;
+    for (const char of queryLower) {
+      if (nameLower.includes(char)) matches++;
+    }
+
+    return Math.floor((matches / queryLower.length) * 60);
   },
 
   /**

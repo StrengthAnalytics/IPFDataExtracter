@@ -16,6 +16,8 @@ export function Scout() {
   const [isLoading, setIsLoading] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>('total');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [useFuzzySearch, setUseFuzzySearch] = useState(false);
+  const [showFuzzyInfo, setShowFuzzyInfo] = useState(false);
 
   // Initialize date defaults (last 3 years to current)
   useEffect(() => {
@@ -155,11 +157,46 @@ export function Scout() {
       {/* Search and Selection */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="card">
-          <h2 className="text-lg font-semibold text-white mb-4">Search for Lifters</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Search for Lifters</h2>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+                <span>Fuzzy Search</span>
+                <input
+                  type="checkbox"
+                  checked={useFuzzySearch}
+                  onChange={(e) => setUseFuzzySearch(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-primary-500 focus:ring-primary-500 focus:ring-offset-gray-900"
+                />
+              </label>
+              <div className="relative">
+                <button
+                  onMouseEnter={() => setShowFuzzyInfo(true)}
+                  onMouseLeave={() => setShowFuzzyInfo(false)}
+                  className="w-5 h-5 rounded-full bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center text-xs font-bold transition-colors"
+                >
+                  i
+                </button>
+                {showFuzzyInfo && (
+                  <div className="absolute right-0 top-6 w-72 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-3 text-xs text-gray-300 z-50">
+                    <p className="font-semibold text-white mb-2">What is Fuzzy Search?</p>
+                    <p className="mb-2">Fuzzy search finds lifters even with typos or misspellings:</p>
+                    <ul className="list-disc list-inside space-y-1 text-gray-400">
+                      <li>"jon haak" → finds "John Haack"</li>
+                      <li>"jhon hack" → finds "John Haack"</li>
+                      <li>"haack" → finds "John Haack"</li>
+                    </ul>
+                    <p className="mt-2 text-gray-500">Turn off for exact matches only (faster).</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
           <LifterSearch
             onSelectLifter={handleAddLifter}
             placeholder="Add lifter to comparison..."
             weightClass={weightClass || undefined}
+            useFuzzySearch={useFuzzySearch}
           />
           <p className="text-xs text-gray-500 mt-2">You can add up to 10 lifters</p>
         </div>
