@@ -6,9 +6,10 @@ interface LifterSearchProps {
   onSelectLifter: (lifter: LifterSearchResult) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  weightClass?: string;
 }
 
-export function LifterSearch({ onSelectLifter, placeholder = 'Search for a lifter...', autoFocus = false }: LifterSearchProps) {
+export function LifterSearch({ onSelectLifter, placeholder = 'Search for a lifter...', autoFocus = false, weightClass }: LifterSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<LifterSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,7 +41,7 @@ export function LifterSearch({ onSelectLifter, placeholder = 'Search for a lifte
     debounceTimer.current = setTimeout(async () => {
       setIsLoading(true);
       try {
-        const response = await api.searchLifters(query, 10);
+        const response = await api.searchLifters(query, 10, weightClass);
         setResults(response.results);
         setShowResults(true);
       } catch (error) {
@@ -56,7 +57,7 @@ export function LifterSearch({ onSelectLifter, placeholder = 'Search for a lifte
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [query]);
+  }, [query, weightClass]);
 
   const handleSelect = (lifter: LifterSearchResult) => {
     onSelectLifter(lifter);

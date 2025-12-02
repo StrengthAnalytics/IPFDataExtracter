@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LifterSearch } from '../components/LifterSearch';
 import { api } from '../services/api';
 import type { LifterSearchResult, BestLifts } from '../types';
@@ -6,8 +6,32 @@ import type { LifterSearchResult, BestLifts } from '../types';
 export function Scout() {
   const [selectedLifters, setSelectedLifters] = useState<string[]>([]);
   const [comparisonData, setComparisonData] = useState<BestLifts[] | null>(null);
-  const [timeframe, setTimeframe] = useState<number>(3);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [weightClass, setWeightClass] = useState<string>('');
+  const [weightClasses, setWeightClasses] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Initialize date defaults (last 3 years to current)
+  useEffect(() => {
+    const now = new Date();
+    const threeYearsAgo = new Date();
+    threeYearsAgo.setFullYear(now.getFullYear() - 3);
+
+    setEndDate(now.toISOString().split('T')[0]);
+    setStartDate(threeYearsAgo.toISOString().split('T')[0]);
+  }, []);
+
+  // Load weight classes
+  useEffect(() => {
+    api.getWeightClasses().then((data) => {
+      const allClasses = [
+        ...(data.M || []),
+        ...(data.F || [])
+      ].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => parseFloat(a) - parseFloat(b));
+      setWeightClasses(allClasses);
+    }).catch(err => console.error('Error loading weight classes:', err));
+  }, []);
 
   const handleAddLifter = (lifter: LifterSearchResult) => {
     if (!selectedLifters.includes(lifter.name) && selectedLifters.length < 10) {
@@ -27,7 +51,13 @@ export function Scout() {
 
     setIsLoading(true);
     try {
-      const result = await api.compareLifters(selectedLifters, timeframe);
+      const result = await api.compareLifters(
+        selectedLifters,
+        startDate || undefined,
+        endDate || undefined,
+        undefined,
+        weightClass || undefined
+      );
       setComparisonData(result.lifters);
     } catch (error) {
       console.error('Comparison error:', error);
@@ -48,26 +78,62 @@ export function Scout() {
       </div>
 
       {/* Search and Selection */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2">
-          <div className="card">
-            <h2 className="text-lg font-semibold text-white mb-4">Search for Lifters</h2>
-            <LifterSearch onSelectLifter={handleAddLifter} placeholder="Add lifter to comparison..." />
-            <p className="text-xs text-gray-500 mt-2">You can add up to 10 lifters</p>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="card">
+          <h2 className="text-lg font-semibold text-white mb-4">Search for Lifters</h2>
+          <LifterSearch
+            onSelectLifter={handleAddLifter}
+            placeholder="Add lifter to comparison..."
+            weightClass={weightClass || undefined}
+          />
+          <p className="text-xs text-gray-500 mt-2">You can add up to 10 lifters</p>
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-white mb-4">Timeframe</h2>
-          <select
-            className="input"
-            value={timeframe}
-            onChange={(e) => setTimeframe(Number(e.target.value))}
-          >
-            <option value={1}>Last 1 year</option>
-            <option value={2}>Last 2 years</option>
-            <option value={3}>Last 3 years</option>
-          </select>
+          <h2 className="text-lg font-semibold text-white mb-4">Filters</h2>
+
+          {/* Weight Class Filter */}
+          <div className="mb-4">
+            <label className="block text-sm text-gray-400 mb-2">Weight Class (optional)</label>
+            <select
+              className="input"
+              value={weightClass}
+              onChange={(e) => setWeightClass(e.target.value)}
+            >
+              <option value="">All weight classes</option>
+              {weightClasses.map((wc) => (
+                <option key={wc} value={wc}>{wc} kg</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Filter search results and comparisons by weight class
+            </p>
+          </div>
+
+          {/* Date Range */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Start Date</label>
+              <input
+                type="date"
+                className="input"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">End Date</label>
+              <input
+                type="date"
+                className="input"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Only show results from competitions within this date range
+          </p>
         </div>
       </div>
 
@@ -106,7 +172,15 @@ export function Scout() {
       {comparisonData && comparisonData.length > 0 && (
         <div className="card overflow-x-auto">
           <h2 className="text-lg font-semibold text-white mb-4">
-            Comparison Results (Last {timeframe} {timeframe === 1 ? 'year' : 'years'})
+            Comparison Results
+            {startDate && endDate && (
+              <span className="text-gray-400 text-sm ml-2">
+                ({new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()})
+              </span>
+            )}
+            {weightClass && (
+              <span className="text-gray-400 text-sm ml-2">• {weightClass} kg class</span>
+            )}
           </h2>
           <table className="w-full text-sm">
             <thead>

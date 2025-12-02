@@ -23,6 +23,7 @@ export interface Competition {
   total_kg?: number;
   dots?: number;
   wilks?: number;
+  goodlift?: number; // IPFGL points
   place: string;
   division?: string;
 }

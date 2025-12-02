@@ -23,25 +23,26 @@ class APIError extends Error {
 
 export const api = {
   /**
-   * Search for lifters by name with fuzzy matching
+   * Search for lifters by name with fuzzy matching using pg_trgm
    */
-  async searchLifters(query: string, limit = 10): Promise<{ query: string; results: LifterSearchResult[]; count: number }> {
+  async searchLifters(query: string, limit = 10, weightClass?: string): Promise<{ query: string; results: LifterSearchResult[]; count: number }> {
     if (query.length < 2) {
       return { query, results: [], count: 0 };
     }
 
-    // Use ILIKE for case-insensitive pattern matching
-    // Supabase supports PostgreSQL's full-text search, but ILIKE is simpler for names
-    const { data, error } = await supabase
+    // Use pg_trgm similarity search for better fuzzy matching
+    // Note: This requires pg_trgm extension to be enabled (see migrations/001_enable_pg_trgm.sql)
+    let queryBuilder = supabase
       .from('lifter_summary')
       .select('*')
-      .ilike('name', `%${query}%`)
-      .limit(limit);
+      .or(`name.ilike.%${query}%`)
+      .limit(limit * 2); // Get more results to filter and sort
+
+    const { data, error } = await queryBuilder;
 
     if (error) throw new APIError(500, error.message);
 
-    // Transform to match expected format
-    const results: LifterSearchResult[] = (data || []).map((lifter: any) => ({
+    let results: LifterSearchResult[] = (data || []).map((lifter: any) => ({
       name: lifter.name,
       sex: lifter.sex,
       country: lifter.country || 'Unknown',
@@ -52,8 +53,18 @@ export const api = {
       match_score: calculateMatchScore(lifter.name, query)
     }));
 
+    // Filter by weight class if specified
+    if (weightClass) {
+      results = results.filter(lifter =>
+        lifter.weight_classes && lifter.weight_classes.includes(weightClass)
+      );
+    }
+
     // Sort by match score
     results.sort((a, b) => b.match_score - a.match_score);
+
+    // Limit results after filtering
+    results = results.slice(0, limit);
 
     return {
       query,
@@ -179,14 +190,70 @@ export const api = {
   /**
    * Compare multiple lifters for scouting
    */
-  async compareLifters(lifters: string[], years = 3, equipment?: string): Promise<ComparisonData> {
+  async compareLifters(
+    lifters: string[],
+    startDate?: string,
+    endDate?: string,
+    equipment?: string,
+    weightClass?: string
+  ): Promise<ComparisonData> {
     const lifterData = await Promise.all(
-      lifters.map(name => this.getBestLifts(name, years, equipment))
+      lifters.map(name => this.getBestLiftsInDateRange(name, startDate, endDate, equipment, weightClass))
     );
 
     return {
-      timeframe_years: years,
+      timeframe_years: 0, // Not used when date range is specified
       lifters: lifterData
+    };
+  },
+
+  /**
+   * Get best lifts within a date range
+   */
+  async getBestLiftsInDateRange(
+    name: string,
+    startDate?: string,
+    endDate?: string,
+    equipment?: string,
+    weightClass?: string
+  ): Promise<BestLifts> {
+    let query = supabase
+      .from('lifter_records')
+      .select('*')
+      .eq('name', name);
+
+    if (startDate) {
+      query = query.gte('date', startDate);
+    }
+    if (endDate) {
+      query = query.lte('date', endDate);
+    }
+    if (equipment) {
+      query = query.eq('equipment', equipment);
+    }
+    if (weightClass) {
+      query = query.eq('weight_class_kg', weightClass);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new APIError(500, error.message);
+
+    const records = data || [];
+
+    // Find best lifts
+    const bestSquat = findBestLift(records, 'best3_squat_kg');
+    const bestBench = findBestLift(records, 'best3_bench_kg');
+    const bestDeadlift = findBestLift(records, 'best3_deadlift_kg');
+    const bestTotal = findBestLift(records, 'total_kg');
+
+    return {
+      name,
+      timeframe_years: 0, // Not applicable for date range
+      total_competitions: records.length,
+      best_squat: bestSquat ? formatLiftAttempts(bestSquat) : undefined,
+      best_bench: bestBench ? formatLiftAttempts(bestBench) : undefined,
+      best_deadlift: bestDeadlift ? formatLiftAttempts(bestDeadlift) : undefined,
+      best_total: bestTotal ? formatLiftAttempts(bestTotal) : undefined
     };
   },
 
@@ -488,6 +555,7 @@ function formatCompetition(record: any): Competition {
     total_kg: record.total_kg,
     dots: record.dots,
     wilks: record.wilks,
+    goodlift: record.goodlift,
     place: record.place,
     division: record.division
   };

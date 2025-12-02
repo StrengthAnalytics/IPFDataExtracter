@@ -142,6 +142,7 @@ export function LifterProfile() {
                 <th className="text-center py-3 px-4 text-gray-400 font-medium">Bench</th>
                 <th className="text-center py-3 px-4 text-gray-400 font-medium">Deadlift</th>
                 <th className="text-center py-3 px-4 text-gray-400 font-medium">Total</th>
+                <th className="text-center py-3 px-4 text-gray-400 font-medium">IPFGL</th>
                 <th className="text-center py-3 px-4 text-gray-400 font-medium">Place</th>
               </tr>
             </thead>
@@ -163,12 +164,13 @@ export function LifterProfile() {
                     <td className="py-3 px-4 text-center text-blue-400">{formatWeight(comp.best3_bench_kg)}</td>
                     <td className="py-3 px-4 text-center text-red-400">{formatWeight(comp.best3_deadlift_kg)}</td>
                     <td className="py-3 px-4 text-center text-purple-400 font-semibold">{formatWeight(comp.total_kg)}</td>
+                    <td className="py-3 px-4 text-center text-yellow-400">{comp.goodlift?.toFixed(2) || '-'}</td>
                     <td className="py-3 px-4 text-center text-gray-300">{comp.place || '-'}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-gray-500">
+                  <td colSpan={9} className="py-8 text-center text-gray-500">
                     No competition data available
                   </td>
                 </tr>
