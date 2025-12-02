@@ -13,7 +13,12 @@ export function LifterProfile() {
   const [error, setError] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<CompSortColumn>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [weightClass, setWeightClass] = useState<string>('');
+  const [weightClasses, setWeightClasses] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
+  // Load lifter profile
   useEffect(() => {
     if (!name) return;
 
@@ -28,6 +33,17 @@ export function LifterProfile() {
       })
       .finally(() => setIsLoading(false));
   }, [name]);
+
+  // Load weight classes
+  useEffect(() => {
+    api.getWeightClasses().then((data) => {
+      const allClasses = [
+        ...(data.M || []),
+        ...(data.F || [])
+      ].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => parseFloat(a) - parseFloat(b));
+      setWeightClasses(allClasses);
+    }).catch(err => console.error('Error loading weight classes:', err));
+  }, []);
 
   if (isLoading) {
     return (
@@ -63,8 +79,24 @@ export function LifterProfile() {
     }
   };
 
-  const getSortedCompetitions = (competitions: Competition[]) => {
-    return [...competitions].sort((a, b) => {
+  const getFilteredAndSortedCompetitions = (competitions: Competition[]) => {
+    // First filter by weight class and date range
+    let filtered = competitions;
+
+    if (weightClass) {
+      filtered = filtered.filter(comp => comp.weight_class_kg === weightClass);
+    }
+
+    if (startDate) {
+      filtered = filtered.filter(comp => comp.date >= startDate);
+    }
+
+    if (endDate) {
+      filtered = filtered.filter(comp => comp.date <= endDate);
+    }
+
+    // Then sort
+    return [...filtered].sort((a, b) => {
       let aValue: number | string = 0;
       let bValue: number | string = 0;
 
