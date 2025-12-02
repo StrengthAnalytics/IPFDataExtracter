@@ -521,23 +521,6 @@ export const api = {
 
 // Helper functions
 
-function calculateMatchScore(name: string, query: string): number {
-  const nameLower = name.toLowerCase();
-  const queryLower = query.toLowerCase();
-
-  if (nameLower === queryLower) return 100;
-  if (nameLower.startsWith(queryLower)) return 90;
-  if (nameLower.includes(queryLower)) return 70;
-
-  // Simple character overlap score
-  let matches = 0;
-  for (const char of queryLower) {
-    if (nameLower.includes(char)) matches++;
-  }
-
-  return Math.floor((matches / queryLower.length) * 60);
-}
-
 function formatCompetition(record: any): Competition {
   return {
     date: record.date,
