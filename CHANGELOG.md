@@ -15,25 +15,53 @@ Complete powerlifting scouting application with advanced filtering and compariso
 ## Core Features
 
 ### 🔍 Lifter Search
-**File:** `src/components/LifterSearch.tsx`
+**Files:**
+- `src/components/LifterSearch.tsx` (UI component)
+- `src/services/supabaseApi.ts:28-72` (Search logic)
 
+**Features:**
 - Fuzzy name search with PostgreSQL `pg_trgm` extension
+- Typo-tolerant matching (e.g., "jon haak" finds "John Haack")
+- Similarity score ranking (1.0 = exact match)
 - 300ms debounced input for performance
-- Match score ranking (exact > starts with > contains)
 - Weight class filtering support
 - Autocomplete dropdown with rich lifter details
 - Click-outside detection to close results
 
-**Database:**
-- Trigram GIN index on `lifter_summary.name`
-- See `migrations/001_enable_pg_trgm.sql`
+**Database Requirements:**
+1. `migrations/001_enable_pg_trgm.sql` - Enable pg_trgm extension and create GIN indexes
+2. `migrations/002_add_fuzzy_search_function.sql` - Create `search_lifters_by_similarity()` function
+
+**Implementation:**
+```typescript
+// Uses PostgreSQL RPC function for fuzzy search
+const { data, error } = await supabase.rpc('search_lifters_by_similarity', {
+  search_query: query.toLowerCase(),
+  similarity_threshold: 0.1,  // Lower = more fuzzy
+  result_limit: limit * 3
+});
+```
+
+**Similarity Threshold:**
+- `0.1` = Very permissive (handles significant typos)
+- `0.3` = Moderate (minor typos only)
+- `0.5` = Strict (almost exact matches)
+- Current setting: `0.1` for best user experience
+
+**Search Quality:**
+- Handles misspellings: "jhon hack" → "John Haack" ✅
+- Case insensitive: "JOHN HAACK" = "john haack" ✅
+- Partial matches: "haack" → "John Haack" ✅
+- Transpositions: "jonh" → "john" ✅
+- Missing characters: "jhn haak" → "John Haack" ✅
 
 **Future Enhancements:**
 - [ ] Federation filtering
 - [ ] Country filtering
 - [ ] Recent searches history
 - [ ] Search suggestions
-- [ ] Typo correction
+- [ ] Adjustable similarity threshold in UI
+- [ ] Search result highlighting
 
 ---
 

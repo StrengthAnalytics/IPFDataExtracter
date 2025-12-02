@@ -30,15 +30,15 @@ export const api = {
       return { query, results: [], count: 0 };
     }
 
-    // Use pg_trgm similarity search for better fuzzy matching
-    // Note: This requires pg_trgm extension to be enabled (see migrations/001_enable_pg_trgm.sql)
-    let queryBuilder = supabase
-      .from('lifter_summary')
-      .select('*')
-      .or(`name.ilike.%${query}%`)
-      .limit(limit * 2); // Get more results to filter and sort
-
-    const { data, error } = await queryBuilder;
+    // Use pg_trgm similarity search for fuzzy matching with typo tolerance
+    // This requires:
+    // 1. pg_trgm extension enabled (migrations/001_enable_pg_trgm.sql)
+    // 2. search_lifters_by_similarity function (migrations/002_add_fuzzy_search_function.sql)
+    const { data, error } = await supabase.rpc('search_lifters_by_similarity', {
+      search_query: query.toLowerCase(),
+      similarity_threshold: 0.1, // Lower = more fuzzy (0.1 is quite permissive)
+      result_limit: limit * 3 // Get extra results for weight class filtering
+    });
 
     if (error) throw new APIError(500, error.message);
 
@@ -50,7 +50,7 @@ export const api = {
       equipment_types: lifter.equipment_types || [],
       last_competition_date: lifter.last_competition_date,
       total_competitions: lifter.total_competitions || 0,
-      match_score: calculateMatchScore(lifter.name, query)
+      match_score: lifter.similarity_score // Use database similarity score
     }));
 
     // Filter by weight class if specified
@@ -60,10 +60,8 @@ export const api = {
       );
     }
 
-    // Sort by match score
-    results.sort((a, b) => b.match_score - a.match_score);
-
-    // Limit results after filtering
+    // Results are already sorted by similarity score from the database
+    // Just limit after filtering
     results = results.slice(0, limit);
 
     return {
