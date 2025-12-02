@@ -3,6 +3,9 @@ import { LifterSearch } from '../components/LifterSearch';
 import { api } from '../services/api';
 import type { LifterSearchResult, BestLifts } from '../types';
 
+type SortColumn = 'name' | 'squat' | 'bench' | 'deadlift' | 'total' | 'meets';
+type SortDirection = 'asc' | 'desc';
+
 export function Scout() {
   const [selectedLifters, setSelectedLifters] = useState<string[]>([]);
   const [comparisonData, setComparisonData] = useState<BestLifts[] | null>(null);
@@ -11,6 +14,8 @@ export function Scout() {
   const [weightClass, setWeightClass] = useState<string>('');
   const [weightClasses, setWeightClasses] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('total');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   // Initialize date defaults (last 3 years to current)
   useEffect(() => {
@@ -69,6 +74,72 @@ export function Scout() {
 
   const formatWeight = (kg?: number) => kg ? `${kg} kg` : '-';
   const formatDate = (date?: string) => date ? new Date(date).toLocaleDateString() : '-';
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Default to descending for new column (highest first)
+      setSortColumn(column);
+      setSortDirection('desc');
+    }
+  };
+
+  const getSortedData = () => {
+    if (!comparisonData) return [];
+
+    const sorted = [...comparisonData].sort((a, b) => {
+      let aValue: number | string = 0;
+      let bValue: number | string = 0;
+
+      switch (sortColumn) {
+        case 'name':
+          aValue = a.name;
+          bValue = b.name;
+          break;
+        case 'squat':
+          aValue = a.best_squat?.best3_squat_kg || 0;
+          bValue = b.best_squat?.best3_squat_kg || 0;
+          break;
+        case 'bench':
+          aValue = a.best_bench?.best3_bench_kg || 0;
+          bValue = b.best_bench?.best3_bench_kg || 0;
+          break;
+        case 'deadlift':
+          aValue = a.best_deadlift?.best3_deadlift_kg || 0;
+          bValue = b.best_deadlift?.best3_deadlift_kg || 0;
+          break;
+        case 'total':
+          aValue = a.best_total?.total_kg || 0;
+          bValue = b.best_total?.total_kg || 0;
+          break;
+        case 'meets':
+          aValue = a.total_competitions;
+          bValue = b.total_competitions;
+          break;
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+
+      return sortDirection === 'asc'
+        ? (aValue as number) - (bValue as number)
+        : (bValue as number) - (aValue as number);
+    });
+
+    return sorted;
+  };
+
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <span className="text-gray-600 ml-1">⇅</span>;
+    }
+    return <span className="text-primary-500 ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -185,16 +256,46 @@ export function Scout() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-700">
-                <th className="text-left py-3 px-4 text-gray-400 font-medium">Lifter</th>
-                <th className="text-left py-3 px-4 text-gray-400 font-medium">Best Squat</th>
-                <th className="text-left py-3 px-4 text-gray-400 font-medium">Best Bench</th>
-                <th className="text-left py-3 px-4 text-gray-400 font-medium">Best Deadlift</th>
-                <th className="text-left py-3 px-4 text-gray-400 font-medium">Best Total</th>
-                <th className="text-center py-3 px-4 text-gray-400 font-medium">Meets</th>
+                <th
+                  className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  onClick={() => handleSort('name')}
+                >
+                  Lifter<SortIcon column="name" />
+                </th>
+                <th
+                  className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  onClick={() => handleSort('squat')}
+                >
+                  Best Squat<SortIcon column="squat" />
+                </th>
+                <th
+                  className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  onClick={() => handleSort('bench')}
+                >
+                  Best Bench<SortIcon column="bench" />
+                </th>
+                <th
+                  className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  onClick={() => handleSort('deadlift')}
+                >
+                  Best Deadlift<SortIcon column="deadlift" />
+                </th>
+                <th
+                  className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  onClick={() => handleSort('total')}
+                >
+                  Best Total<SortIcon column="total" />
+                </th>
+                <th
+                  className="text-center py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  onClick={() => handleSort('meets')}
+                >
+                  Meets<SortIcon column="meets" />
+                </th>
               </tr>
             </thead>
             <tbody>
-              {comparisonData.map((lifter) => (
+              {getSortedData().map((lifter) => (
                 <tr key={lifter.name} className="border-b border-gray-800 hover:bg-gray-800/50">
                   <td className="py-3 px-4">
                     <div className="font-semibold text-white">{lifter.name}</div>
