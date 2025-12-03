@@ -648,14 +648,32 @@ export const api = {
       }
     }
 
-    // Order by the sort field and limit results
-    query = query.order(sortBy, { ascending: false }).limit(limit);
+    // Order by the sort field and fetch more results than needed
+    // (to ensure we get top unique lifters after deduplication)
+    query = query.order(sortBy, { ascending: false }).limit(limit * 10);
 
     const { data, error } = await query;
 
     if (error) throw new APIError(500, error.message);
 
-    return data || [];
+    const records = data || [];
+
+    // Deduplicate: keep only the best performance per lifter
+    const lifterBest = new Map<string, any>();
+
+    for (const record of records) {
+      const existing = lifterBest.get(record.name);
+      if (!existing || record[sortBy] > existing[sortBy]) {
+        lifterBest.set(record.name, record);
+      }
+    }
+
+    // Convert back to array, sort, and take top N
+    const uniqueLifters = Array.from(lifterBest.values())
+      .sort((a, b) => b[sortBy] - a[sortBy])
+      .slice(0, limit);
+
+    return uniqueLifters;
   },
 
   /**
