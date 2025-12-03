@@ -106,14 +106,14 @@ export function Ranking() {
 
       {/* Filter Form */}
       <div className="card mb-8">
-        <h2 className="text-xl font-semibold text-white mb-6">Filters</h2>
-        <form onSubmit={handleSearch} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <h2 className="text-lg font-semibold text-white mb-4">Filters</h2>
+        <form onSubmit={handleSearch} className="space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
             {/* Sort By */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Sort By</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Sort By</label>
               <select
-                className="input"
+                className="input text-sm py-1.5"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
               >
@@ -127,13 +127,13 @@ export function Ranking() {
 
             {/* Federation */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Federation</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Federation</label>
               <select
-                className="input"
+                className="input text-sm py-1.5"
                 value={federation}
                 onChange={(e) => setFederation(e.target.value)}
               >
-                <option value="">All Federations</option>
+                <option value="">All</option>
                 {federations.map((fed) => (
                   <option key={fed} value={fed}>
                     {fed}
@@ -144,24 +144,24 @@ export function Ranking() {
 
             {/* Equipment */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Equipment</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Equipment</label>
               <select
-                className="input"
+                className="input text-sm py-1.5"
                 value={equipment}
                 onChange={(e) => setEquipment(e.target.value)}
               >
-                <option value="">All Equipment</option>
-                <option value="Raw">Classic (Raw)</option>
-                <option value="Single-ply">Equipped (Single-ply)</option>
-                <option value="Multi-ply">Equipped (Multi-ply)</option>
+                <option value="">All</option>
+                <option value="Raw">Classic</option>
+                <option value="Single-ply">Single-ply</option>
+                <option value="Multi-ply">Multi-ply</option>
                 <option value="Wraps">Wraps</option>
               </select>
             </div>
 
             {/* Gender */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Gender</label>
-              <select className="input" value={sex} onChange={(e) => setSex(e.target.value)}>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Gender</label>
+              <select className="input text-sm py-1.5" value={sex} onChange={(e) => setSex(e.target.value)}>
                 <option value="M">Male</option>
                 <option value="F">Female</option>
               </select>
@@ -169,17 +169,17 @@ export function Ranking() {
 
             {/* Weight Class */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Weight Class</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Weight Class</label>
               <select
-                className="input"
+                className="input text-sm py-1.5"
                 value={weightClass}
                 onChange={(e) => setWeightClass(e.target.value)}
               >
-                <option value="">All Weight Classes</option>
+                <option value="">All</option>
                 {weightClasses &&
                   weightClasses[sex as 'M' | 'F'].map((wc) => (
                     <option key={wc} value={wc}>
-                      {wc} kg
+                      {wc}kg
                     </option>
                   ))}
               </select>
@@ -187,28 +187,28 @@ export function Ranking() {
 
             {/* Age Class */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Age Class</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Age Class</label>
               <select
-                className="input"
+                className="input text-sm py-1.5"
                 value={ageClass}
                 onChange={(e) => setAgeClass(e.target.value)}
               >
-                <option value="Open">Open (All)</option>
-                <option value="Sub-Junior">Sub-Junior</option>
+                <option value="Open">Open</option>
+                <option value="Sub-Junior">Sub-Jr</option>
                 <option value="Junior">Junior</option>
                 <option value="Senior">Senior</option>
-                <option value="Master 1">Master 1</option>
-                <option value="Master 2">Master 2</option>
-                <option value="Master 3">Master 3</option>
-                <option value="Master 4">Master 4</option>
+                <option value="Master 1">M1</option>
+                <option value="Master 2">M2</option>
+                <option value="Master 3">M3</option>
+                <option value="Master 4">M4</option>
               </select>
             </div>
 
             {/* Year */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Year</label>
-              <select className="input" value={year} onChange={(e) => setYear(e.target.value)}>
-                <option value="">All Years</option>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Year</label>
+              <select className="input text-sm py-1.5" value={year} onChange={(e) => setYear(e.target.value)}>
+                <option value="">All</option>
                 <option value="2025">2025</option>
                 <option value="2024">2024</option>
                 <option value="2023">2023</option>
@@ -218,21 +218,21 @@ export function Ranking() {
 
             {/* Competition Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Competition Type</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Event</label>
               <select
-                className="input"
+                className="input text-sm py-1.5"
                 value={eventType}
                 onChange={(e) => setEventType(e.target.value)}
               >
-                <option value="ALL">All Events</option>
-                <option value="SBD">Full Power (SBD)</option>
-                <option value="B">Bench Only</option>
-                <option value="D">Deadlift Only</option>
+                <option value="ALL">All</option>
+                <option value="SBD">Full Power</option>
+                <option value="B">Bench</option>
+                <option value="D">Deadlift</option>
               </select>
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary w-full" disabled={isLoading}>
+          <button type="submit" className="btn btn-primary w-full py-2" disabled={isLoading}>
             {isLoading ? 'Searching...' : 'Get Top 10 Rankings'}
           </button>
         </form>
