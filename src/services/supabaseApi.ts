@@ -553,6 +553,7 @@ function formatLiftAttempts(record: any): LiftAttempts {
     deadlift2_kg: record.deadlift2_kg,
     deadlift3_kg: record.deadlift3_kg,
     total_kg: record.total_kg,
+    goodlift: record.goodlift,
     place: record.place
   };
 }
