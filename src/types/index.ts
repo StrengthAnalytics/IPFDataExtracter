@@ -86,30 +86,6 @@ export interface BestLifts {
   best_total?: LiftAttempts;
 }
 
-export interface PercentileData {
-  percentile: number;
-  value: number;
-  sample_size: number;
-  mean: number;
-  median: number;
-  std_dev: number;
-  min: number;
-  max: number;
-  p25: number;
-  p50: number;
-  p75: number;
-  p90: number;
-  p95: number;
-  p99: number;
-  criteria: {
-    sex: string;
-    equipment: string;
-    weight_class: string;
-    lift_type: string;
-    event: string;
-  };
-}
-
 export interface StrengthStandards {
   sex: string;
   weight_class: string;

@@ -106,7 +106,7 @@ export function Home() {
         )}
 
         {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Link to="/scout" className="card hover:border-primary-500 border border-transparent transition-all group">
             <div className="text-3xl mb-3">🔍</div>
             <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-primary-500 transition-colors">
@@ -130,16 +130,6 @@ export function Home() {
               View complete competition history, best lifts, and performance trends for any lifter.
             </p>
           </div>
-
-          <Link to="/percentile" className="card hover:border-primary-500 border border-transparent transition-all group">
-            <div className="text-3xl mb-3">📊</div>
-            <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-primary-500 transition-colors">
-              Percentile Calculator
-            </h3>
-            <p className="text-gray-400 text-sm">
-              See how your lifts rank compared to thousands of lifters in your weight class.
-            </p>
-          </Link>
 
           <Link to="/standards" className="card hover:border-primary-500 border border-transparent transition-all group">
             <div className="text-3xl mb-3">🎯</div>

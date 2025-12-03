@@ -6,7 +6,6 @@ export function Navigation() {
   const navItems = [
     { path: '/', label: 'Home' },
     { path: '/scout', label: 'Scout' },
-    { path: '/percentile', label: 'Percentile' },
     { path: '/standards', label: 'Standards' },
   ];
 

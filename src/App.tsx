@@ -5,7 +5,6 @@ import { Navigation } from './components/Navigation';
 import { Home } from './pages/Home';
 import { Scout } from './pages/Scout';
 import { LifterProfile } from './pages/LifterProfile';
-import { Percentile } from './pages/Percentile';
 import { Standards } from './pages/Standards';
 
 export default function App() {
@@ -18,7 +17,6 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/scout" element={<Scout />} />
             <Route path="/lifter/:name" element={<LifterProfile />} />
-            <Route path="/percentile" element={<Percentile />} />
             <Route path="/standards" element={<Standards />} />
           </Routes>
         </div>
