@@ -2,6 +2,9 @@
 -- This function returns lifters whose names match the search query with a similarity score
 -- Run this in your Supabase SQL Editor after running 001_enable_pg_trgm.sql
 
+-- NOTE: If the function already exists with wrong types, drop it first:
+-- DROP FUNCTION IF EXISTS search_lifters_by_similarity(TEXT, FLOAT, INT);
+
 CREATE OR REPLACE FUNCTION search_lifters_by_similarity(
   search_query TEXT,
   similarity_threshold FLOAT DEFAULT 0.1,
@@ -15,8 +18,8 @@ RETURNS TABLE (
   total_competitions INTEGER,
   first_competition_date DATE,
   last_competition_date DATE,
-  weight_classes TEXT[],
-  equipment_types TEXT[],
+  weight_classes JSONB,
+  equipment_types JSONB,
   best_squat_kg NUMERIC,
   best_squat_date DATE,
   best_squat_meet TEXT,
@@ -29,8 +32,8 @@ RETURNS TABLE (
   best_total_kg NUMERIC,
   best_total_date DATE,
   best_total_meet TEXT,
-  updated_at TIMESTAMP,
-  similarity_score FLOAT
+  updated_at TIMESTAMPTZ,
+  similarity_score REAL
 )
 LANGUAGE plpgsql
 AS $$

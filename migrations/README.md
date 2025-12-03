@@ -36,7 +36,7 @@ LIMIT 10;
 
 ---
 
-### 002_add_fuzzy_search_function.sql ⏳
+### 002_add_fuzzy_search_function.sql ✅
 
 Creates a PostgreSQL function that leverages pg_trgm for fuzzy lifter name search. This function:
 
@@ -49,7 +49,12 @@ Creates a PostgreSQL function that leverages pg_trgm for fuzzy lifter name searc
 
 **Impact:** Enables true typo-tolerant search in the application
 
-**Important:** After running this migration, you must also deploy the updated application code that calls this function via `.rpc('search_lifters_by_similarity', ...)`. See `src/services/supabaseApi.ts:37`.
+**Important:** After running this migration, you must also deploy the updated application code that calls this function via `.rpc('search_lifters_by_similarity', ...)`. See `src/services/supabaseApi.ts:41`.
+
+**Data Type Notes:** This migration uses the correct types for your Supabase schema:
+- `weight_classes` and `equipment_types` are `JSONB` (not `TEXT[]`)
+- `updated_at` is `TIMESTAMPTZ` (not `TIMESTAMP`)
+- `similarity_score` is `REAL` (not `FLOAT` - this is what pg_trgm's `similarity()` function returns)
 
 **Test Query:**
 ```sql
@@ -71,9 +76,9 @@ FROM search_lifters_by_similarity('jon haak', 0.1, 10);
 When deploying fuzzy search:
 
 - [x] Run `001_enable_pg_trgm.sql` in Supabase SQL Editor
-- [ ] Run `002_add_fuzzy_search_function.sql` in Supabase SQL Editor
-- [ ] Test the function with the test queries above
-- [ ] Deploy updated application code to Vercel/production
+- [x] Run `002_add_fuzzy_search_function.sql` in Supabase SQL Editor
+- [x] Test the function with the test queries above
+- [x] Deploy updated application code to Vercel/production
 - [ ] Test search with typos in the deployed app
 
 ---
