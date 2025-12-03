@@ -1,27 +1,35 @@
-# IPF Data Extracter
+# IPF Scout
 
-A modern powerlifting scouting and analysis platform built with React, TypeScript, and Supabase. Analyze competition data from 150,000+ IPF meet records to scout lifters, compare performances, and discover strength percentiles.
+A modern powerlifting scouting and analysis platform built with React, TypeScript, and Supabase. Analyze competition data from 150,000+ IPF meet records to scout lifters and compare performances with advanced analytics.
 
 **🚀 Live Demo**: [Your Vercel URL]
 
 ## Features
 
 ### 🔍 Lifter Search
-Fast, fuzzy search across 40,000+ powerlifters with autocomplete. Search by name and instantly view competition history, best lifts, and performance trends.
+Fast, fuzzy search across 40,000+ powerlifters with autocomplete. Search by name with typo tolerance and instantly view competition history, best lifts, and performance trends.
 
-### 🏋️ Scouting & Comparison
-Compare multiple lifters side-by-side:
-- Best lifts within customizable timeframes (1, 2, or 3 years)
-- Opening attempt analysis
-- Competition strategy insights
+### 🏋️ Advanced Scouting & Comparison
+Compare up to 10 lifters side-by-side with powerful analytics:
+
+**Data Aggregation Modes:**
+- **By Lift**: Cherry-pick best result for each lift across all competitions (default)
+- **By Comp**: View all lifts from the competition with best total or IPF GL score
+
+**Ranking Methods:**
+- **Total**: Rank by total weight lifted
+- **IPF GL**: Rank by IPF Goodlift points for weight-class normalized comparison
+
+**View Modes:**
+- **List View**: Sortable table (default for desktop)
+- **Tiles View**: Card-based grid layout (default for mobile)
+
+**Detailed Analysis:**
+- All 3 attempts for each lift displayed
+- Failed attempts shown with strikethrough
+- Competition date and meet name for context
+- Customizable date ranges
 - Filter by equipment type and weight class
-
-### 📊 Percentile Calculator
-Calculate where your lifts rank compared to thousands of lifters:
-- Percentile rankings by sex, weight class, and equipment
-- Distribution statistics (mean, median, p25, p50, p75, p90, p95, p99)
-- Sample sizes for statistical confidence
-- Support for all lift types (squat, bench, deadlift, total)
 
 ### 🎯 Strength Standards
 Discover benchmarks for your weight class:
@@ -293,9 +301,8 @@ IPFDataExtracter/
 │   │   └── Navigation.tsx    # Main navigation
 │   ├── pages/                # Page components (routes)
 │   │   ├── Home.tsx          # Landing page with search
-│   │   ├── Scout.tsx         # Lifter comparison tool
+│   │   ├── Scout.tsx         # Advanced lifter comparison tool
 │   │   ├── LifterProfile.tsx # Individual lifter profiles
-│   │   ├── Percentile.tsx    # Percentile calculator
 │   │   └── Standards.tsx     # Strength standards
 │   ├── services/             # API layer
 │   │   ├── api.ts            # API exports
@@ -350,16 +357,17 @@ IPFDataExtracter/
 ## Performance
 
 - **Initial Load**: < 2s on fast connections
-- **Search Results**: < 500ms for most queries
+- **Search Results**: < 500ms for most queries with fuzzy matching
 - **Lifter Profile Load**: < 300ms
-- **Percentile Calculation**: < 2s (client-side calculation)
-- **Scouting Comparison**: < 1s for 2-3 lifters
+- **Scouting Comparison**: < 1s for 2-10 lifters with full attempt details
+- **View Switching**: Instant (client-side rendering)
 
 Performance is optimized through:
-- Database indexing on key columns
-- Supabase connection pooling
-- Client-side caching where appropriate
-- Vite's optimized production builds
+- Database indexing on key columns (name, date, sex, equipment, weight class)
+- Supabase connection pooling and automatic scaling
+- Efficient filtering of valid records (null/zero handling)
+- Client-side sorting and view rendering
+- Vite's optimized production builds with code splitting
 
 ## Configuration
 
@@ -478,16 +486,28 @@ For issues, questions, or feature requests:
 - **Email**: support@strengthanalytics.com
 - **Documentation**: See docs in this repository
 
+## Recent Updates
+
+**Latest Features (2025):**
+- ✅ IPF GL (Goodlift Points) ranking system
+- ✅ Dual aggregation modes (By Lift / By Comp)
+- ✅ Responsive view modes (List / Tiles)
+- ✅ Complete attempt details with success/fail indicators
+- ✅ Advanced sorting with ranking method awareness
+- ✅ Fuzzy search with typo tolerance
+- ✅ Mobile-optimized interface
+
 ## Roadmap
 
 Future features under consideration:
-- [ ] Advanced filtering (by federation, age class, etc.)
+- [ ] Advanced filtering (by federation, age class, division)
 - [ ] Wilks/DOTS score comparisons
-- [ ] Historical performance graphs
-- [ ] Export data to CSV/Excel
-- [ ] Mobile app version
-- [ ] User accounts and saved lifters
+- [ ] Historical performance graphs and trends
+- [ ] Export comparisons to CSV/PDF
+- [ ] User accounts and saved lifter lists
 - [ ] Custom scouting reports
+- [ ] Meet-specific analytics
+- [ ] Competition predictions based on historical data
 
 ---
 
