@@ -8,7 +8,6 @@ import type {
   LifterProfile,
   BestLifts,
   Competition,
-  PercentileData,
   StrengthStandards,
   ComparisonData,
   LiftAttempts
@@ -233,10 +232,11 @@ export const api = {
     startDate?: string,
     endDate?: string,
     equipment?: string,
-    weightClass?: string
+    weightClass?: string,
+    aggregationMode: 'byLift' | 'byComp' = 'byLift'
   ): Promise<ComparisonData> {
     const lifterData = await Promise.all(
-      lifters.map(name => this.getBestLiftsInDateRange(name, startDate, endDate, equipment, weightClass))
+      lifters.map(name => this.getBestLiftsInDateRange(name, startDate, endDate, equipment, weightClass, aggregationMode))
     );
 
     return {
@@ -253,7 +253,8 @@ export const api = {
     startDate?: string,
     endDate?: string,
     equipment?: string,
-    weightClass?: string
+    weightClass?: string,
+    aggregationMode: 'byLift' | 'byComp' = 'byLift'
   ): Promise<BestLifts> {
     let query = supabase
       .from('lifter_records')
@@ -278,87 +279,36 @@ export const api = {
 
     const records = data || [];
 
-    // Find best lifts
-    const bestSquat = findBestLift(records, 'best3_squat_kg');
-    const bestBench = findBestLift(records, 'best3_bench_kg');
-    const bestDeadlift = findBestLift(records, 'best3_deadlift_kg');
-    const bestTotal = findBestLift(records, 'total_kg');
+    if (aggregationMode === 'byComp') {
+      // Find the competition with the best total
+      const bestTotalComp = findBestLift(records, 'total_kg');
 
-    return {
-      name,
-      timeframe_years: 0, // Not applicable for date range
-      total_competitions: records.length,
-      best_squat: bestSquat ? formatLiftAttempts(bestSquat) : undefined,
-      best_bench: bestBench ? formatLiftAttempts(bestBench) : undefined,
-      best_deadlift: bestDeadlift ? formatLiftAttempts(bestDeadlift) : undefined,
-      best_total: bestTotal ? formatLiftAttempts(bestTotal) : undefined
-    };
-  },
+      return {
+        name,
+        timeframe_years: 0,
+        total_competitions: records.length,
+        best_squat: bestTotalComp ? formatLiftAttempts(bestTotalComp) : undefined,
+        best_bench: bestTotalComp ? formatLiftAttempts(bestTotalComp) : undefined,
+        best_deadlift: bestTotalComp ? formatLiftAttempts(bestTotalComp) : undefined,
+        best_total: bestTotalComp ? formatLiftAttempts(bestTotalComp) : undefined
+      };
+    } else {
+      // By Lift: Find best for each lift individually (cherry-picked)
+      const bestSquat = findBestLift(records, 'best3_squat_kg');
+      const bestBench = findBestLift(records, 'best3_bench_kg');
+      const bestDeadlift = findBestLift(records, 'best3_deadlift_kg');
+      const bestTotal = findBestLift(records, 'total_kg');
 
-  /**
-   * Calculate percentile for a lift value
-   * Uses client-side calculation - fetches all relevant data and computes percentile
-   */
-  async calculatePercentile(params: {
-    value: number;
-    sex: string;
-    equipment: string;
-    weight_class: string;
-    lift_type: string;
-    event?: string;
-  }): Promise<PercentileData> {
-    const { value, sex, equipment, weight_class, lift_type, event = 'SBD' } = params;
-
-    // Map lift_type to column name
-    const columnMap: Record<string, string> = {
-      squat: 'best3_squat_kg',
-      bench: 'best3_bench_kg',
-      deadlift: 'best3_deadlift_kg',
-      total: 'total_kg'
-    };
-
-    const column = columnMap[lift_type.toLowerCase()];
-    if (!column) {
-      throw new APIError(400, `Invalid lift type: ${lift_type}`);
+      return {
+        name,
+        timeframe_years: 0, // Not applicable for date range
+        total_competitions: records.length,
+        best_squat: bestSquat ? formatLiftAttempts(bestSquat) : undefined,
+        best_bench: bestBench ? formatLiftAttempts(bestBench) : undefined,
+        best_deadlift: bestDeadlift ? formatLiftAttempts(bestDeadlift) : undefined,
+        best_total: bestTotal ? formatLiftAttempts(bestTotal) : undefined
+      };
     }
-
-    // Fetch all values for this category
-    const { data, error } = await supabase
-      .from('lifter_records')
-      .select(column)
-      .eq('sex', sex)
-      .eq('equipment', equipment)
-      .eq('weight_class_kg', weight_class)
-      .ilike('event', `%${event}%`)
-      .not(column, 'is', null)
-      .gt(column, 0);
-
-    if (error) throw new APIError(500, error.message);
-
-    const values = (data || []).map((r: any) => parseFloat(r[column])).filter(v => !isNaN(v));
-
-    if (values.length === 0) {
-      throw new APIError(404, 'No data found for this category');
-    }
-
-    // Calculate statistics
-    values.sort((a, b) => a - b);
-    const percentile = calculatePercentileValue(value, values);
-    const stats = calculateStats(values);
-
-    return {
-      percentile,
-      value,
-      sample_size: values.length,
-      ...stats,
-      criteria: {
-        sex,
-        equipment,
-        weight_class,
-        lift_type,
-        event
-      }
-    };
   },
 
   /**
@@ -615,45 +565,4 @@ function findBestLift(records: any[], column: string): any | null {
     if (!best || current[column] > best[column]) return current;
     return best;
   }, null);
-}
-
-function calculatePercentileValue(value: number, sortedValues: number[]): number {
-  if (sortedValues.length === 0) return 0;
-
-  let count = 0;
-  for (const v of sortedValues) {
-    if (v < value) count++;
-  }
-
-  return Math.round((count / sortedValues.length) * 100 * 10) / 10;
-}
-
-function calculateStats(sortedValues: number[]) {
-  const n = sortedValues.length;
-
-  const sum = sortedValues.reduce((a, b) => a + b, 0);
-  const mean = sum / n;
-
-  const squaredDiffs = sortedValues.map(v => Math.pow(v - mean, 2));
-  const variance = squaredDiffs.reduce((a, b) => a + b, 0) / n;
-  const std_dev = Math.sqrt(variance);
-
-  return {
-    mean: Math.round(mean * 10) / 10,
-    median: percentileAtRank(sortedValues, 50),
-    std_dev: Math.round(std_dev * 10) / 10,
-    min: sortedValues[0],
-    max: sortedValues[n - 1],
-    p25: percentileAtRank(sortedValues, 25),
-    p50: percentileAtRank(sortedValues, 50),
-    p75: percentileAtRank(sortedValues, 75),
-    p90: percentileAtRank(sortedValues, 90),
-    p95: percentileAtRank(sortedValues, 95),
-    p99: percentileAtRank(sortedValues, 99)
-  };
-}
-
-function percentileAtRank(sortedValues: number[], percentile: number): number {
-  const index = Math.ceil((percentile / 100) * sortedValues.length) - 1;
-  return Math.round(sortedValues[Math.max(0, index)] * 10) / 10;
 }

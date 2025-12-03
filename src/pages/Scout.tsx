@@ -5,6 +5,8 @@ import type { LifterSearchResult, BestLifts } from '../types';
 
 type SortColumn = 'name' | 'squat' | 'bench' | 'deadlift' | 'total' | 'meets';
 type SortDirection = 'asc' | 'desc';
+type ViewMode = 'list' | 'tiles';
+type AggregationMode = 'byLift' | 'byComp';
 
 export function Scout() {
   const [selectedLifters, setSelectedLifters] = useState<string[]>([]);
@@ -18,6 +20,12 @@ export function Scout() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [useFuzzySearch, setUseFuzzySearch] = useState(false);
   const [showFuzzyInfo, setShowFuzzyInfo] = useState(false);
+  const [aggregationMode, setAggregationMode] = useState<AggregationMode>('byLift');
+
+  // Set responsive default: tiles for mobile, list for desktop
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    return window.innerWidth < 768 ? 'tiles' : 'list';
+  });
 
   // Initialize date defaults (last 3 years to current)
   useEffect(() => {
@@ -55,7 +63,8 @@ export function Scout() {
           startDate || undefined,
           endDate || undefined,
           undefined,
-          weightClass || undefined
+          weightClass || undefined,
+          aggregationMode
         );
         setComparisonData(result.lifters);
       } catch (error) {
@@ -66,7 +75,7 @@ export function Scout() {
     };
 
     fetchComparison();
-  }, [selectedLifters, startDate, endDate, weightClass]);
+  }, [selectedLifters, startDate, endDate, weightClass, aggregationMode]);
 
   const handleAddLifter = (lifter: LifterSearchResult) => {
     if (!selectedLifters.includes(lifter.name) && selectedLifters.length < 10) {
@@ -284,21 +293,95 @@ export function Scout() {
         </div>
       )}
 
-      {/* Comparison Table */}
+      {/* Comparison Results */}
       {comparisonData && comparisonData.length > 0 && (
-        <div className="card overflow-x-auto">
-          <h2 className="text-lg font-semibold text-white mb-4">
-            Comparison Results
-            {startDate && endDate && (
-              <span className="text-gray-400 text-sm ml-2">
-                ({new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()})
-              </span>
-            )}
-            {weightClass && (
-              <span className="text-gray-400 text-sm ml-2">• {weightClass} kg class</span>
-            )}
-          </h2>
-          <table className="w-full text-sm">
+        <div className="card">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-white mb-3">
+              Comparison Results
+              {startDate && endDate && (
+                <span className="text-gray-400 text-sm ml-2">
+                  ({new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()})
+                </span>
+              )}
+              {weightClass && (
+                <span className="text-gray-400 text-sm ml-2">• {weightClass} kg class</span>
+              )}
+            </h2>
+
+            {/* Toggle Controls */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              {/* Aggregation Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">Data:</span>
+                <div className="inline-flex rounded-lg bg-gray-800 p-1">
+                  <button
+                    onClick={() => setAggregationMode('byLift')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      aggregationMode === 'byLift'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    By Lift
+                  </button>
+                  <button
+                    onClick={() => setAggregationMode('byComp')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      aggregationMode === 'byComp'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    By Comp
+                  </button>
+                </div>
+                <div className="relative group">
+                  <button className="w-5 h-5 rounded-full bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center text-xs font-bold transition-colors">
+                    i
+                  </button>
+                  <div className="absolute left-0 top-6 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-3 text-xs text-gray-300 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                    <p className="font-semibold text-white mb-1">By Lift:</p>
+                    <p className="mb-2 text-gray-400">Best result for each lift across all competitions (cherry-picked).</p>
+                    <p className="font-semibold text-white mb-1">By Comp:</p>
+                    <p className="text-gray-400">All lifts from the competition with the best total.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">View:</span>
+                <div className="inline-flex rounded-lg bg-gray-800 p-1">
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    List
+                  </button>
+                  <button
+                    onClick={() => setViewMode('tiles')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      viewMode === 'tiles'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Tiles
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* List View */}
+          {viewMode === 'list' && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-700">
                 <th
@@ -388,6 +471,74 @@ export function Scout() {
               ))}
             </tbody>
           </table>
+            </div>
+          )}
+
+          {/* Tiles View */}
+          {viewMode === 'tiles' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {getSortedData().map((lifter) => (
+                <div key={lifter.name} className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-primary-500 transition-colors">
+                  <h3 className="text-lg font-bold text-white mb-3">{lifter.name}</h3>
+
+                  <div className="space-y-3">
+                    {/* Squat */}
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Squat</div>
+                      {lifter.best_squat ? (
+                        <div>
+                          <div className="font-semibold text-green-400 text-lg">{formatWeight(lifter.best_squat.best3_squat_kg)}</div>
+                          <div className="text-xs text-gray-500">{formatDate(lifter.best_squat.date)}</div>
+                          <div className="text-xs text-gray-600 truncate">{lifter.best_squat.meet_name}</div>
+                        </div>
+                      ) : <span className="text-gray-600">-</span>}
+                    </div>
+
+                    {/* Bench */}
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Bench</div>
+                      {lifter.best_bench ? (
+                        <div>
+                          <div className="font-semibold text-blue-400 text-lg">{formatWeight(lifter.best_bench.best3_bench_kg)}</div>
+                          <div className="text-xs text-gray-500">{formatDate(lifter.best_bench.date)}</div>
+                          <div className="text-xs text-gray-600 truncate">{lifter.best_bench.meet_name}</div>
+                        </div>
+                      ) : <span className="text-gray-600">-</span>}
+                    </div>
+
+                    {/* Deadlift */}
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">Deadlift</div>
+                      {lifter.best_deadlift ? (
+                        <div>
+                          <div className="font-semibold text-red-400 text-lg">{formatWeight(lifter.best_deadlift.best3_deadlift_kg)}</div>
+                          <div className="text-xs text-gray-500">{formatDate(lifter.best_deadlift.date)}</div>
+                          <div className="text-xs text-gray-600 truncate">{lifter.best_deadlift.meet_name}</div>
+                        </div>
+                      ) : <span className="text-gray-600">-</span>}
+                    </div>
+
+                    {/* Total */}
+                    <div className="pt-2 border-t border-gray-700">
+                      <div className="text-xs text-gray-500 mb-1">Total</div>
+                      {lifter.best_total ? (
+                        <div>
+                          <div className="font-bold text-purple-400 text-xl">{formatWeight(lifter.best_total.total_kg)}</div>
+                          <div className="text-xs text-gray-500">{formatDate(lifter.best_total.date)}</div>
+                          <div className="text-xs text-gray-600 truncate">{lifter.best_total.meet_name}</div>
+                        </div>
+                      ) : <span className="text-gray-600">-</span>}
+                    </div>
+
+                    {/* Meets */}
+                    <div className="text-xs text-gray-500">
+                      {lifter.total_competitions} {lifter.total_competitions === 1 ? 'meet' : 'meets'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
