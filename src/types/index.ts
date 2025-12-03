@@ -48,6 +48,7 @@ export interface LiftAttempts {
   deadlift2_kg?: number;
   deadlift3_kg?: number;
   total_kg?: number;
+  goodlift?: number;
   place: string;
 }
 
