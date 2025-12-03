@@ -2,6 +2,21 @@ import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import type { RankingRecord } from '../types';
 
+// Federation mappings: display name -> database value(s)
+const FEDERATION_OPTIONS = [
+  { label: 'All', value: '' },
+  { label: 'All Internationals', value: 'IPF,AfricanPF,AsianPF,EPF,FESUPO,NAPF,ORPF,CommonwealthPF,NordicPF' },
+  { label: 'IPF', value: 'IPF' },
+  { label: 'AfricaPF / Africa', value: 'AfricanPF' },
+  { label: 'AsianPF / Asia', value: 'AsianPF' },
+  { label: 'EPF / Europe', value: 'EPF' },
+  { label: 'FESUPO / South America', value: 'FESUPO' },
+  { label: 'NAPF / North America', value: 'NAPF' },
+  { label: 'ORPF / Oceania', value: 'ORPF' },
+  { label: 'AMP / USA', value: 'AMP' },
+  { label: 'BP / UK', value: 'BP' },
+];
+
 export function Ranking() {
   const [sortBy, setSortBy] = useState<'goodlift' | 'best3_squat_kg' | 'best3_bench_kg' | 'best3_deadlift_kg' | 'total_kg'>('goodlift');
   const [federation, setFederation] = useState('');
@@ -15,16 +30,11 @@ export function Ranking() {
   const [results, setResults] = useState<RankingRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [federations, setFederations] = useState<string[]>([]);
   const [weightClasses, setWeightClasses] = useState<{ M: string[]; F: string[] } | null>(null);
 
-  // Load federations and weight classes on mount
+  // Load weight classes on mount
   useEffect(() => {
-    Promise.all([
-      api.getFederations(),
-      api.getWeightClasses()
-    ]).then(([fedData, wcData]) => {
-      setFederations(fedData.federations);
+    api.getWeightClasses().then((wcData) => {
       if (wcData.M && wcData.F) {
         setWeightClasses(wcData as { M: string[]; F: string[] });
       }
@@ -133,10 +143,9 @@ export function Ranking() {
                 value={federation}
                 onChange={(e) => setFederation(e.target.value)}
               >
-                <option value="">All</option>
-                {federations.map((fed) => (
-                  <option key={fed} value={fed}>
-                    {fed}
+                {FEDERATION_OPTIONS.map((fed) => (
+                  <option key={fed.value} value={fed.value}>
+                    {fed.label}
                   </option>
                 ))}
               </select>

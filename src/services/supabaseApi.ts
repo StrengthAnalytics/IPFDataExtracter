@@ -595,7 +595,13 @@ export const api = {
 
     // Apply filters
     if (federation) {
-      query = query.eq('federation', federation);
+      // Handle multiple federations (e.g., "IPF,AfricanPF,AsianPF")
+      if (federation.includes(',')) {
+        const federations = federation.split(',');
+        query = query.in('federation', federations);
+      } else {
+        query = query.eq('federation', federation);
+      }
     }
     if (equipment) {
       query = query.eq('equipment', equipment);
