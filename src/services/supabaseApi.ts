@@ -284,7 +284,10 @@ export const api = {
     if (aggregationMode === 'byComp') {
       // Find the competition with the best total or IPF GL based on ranking method
       const searchColumn = rankingMethod === 'ipfgl' ? 'goodlift' : 'total_kg';
-      const bestComp = findBestLift(records, searchColumn);
+
+      // Filter records to only include those with valid values for the search column
+      const validRecords = records.filter(r => r[searchColumn] && r[searchColumn] > 0);
+      const bestComp = findBestLift(validRecords, searchColumn);
 
       return {
         name,
