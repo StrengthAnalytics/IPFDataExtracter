@@ -150,6 +150,9 @@ export interface RankingRecord {
   goodlift?: number;
   place?: string;
   division?: string;
+  country?: string;
+  event?: string;
+  meet_country?: string;
 }
 
 export interface RankingFilters {

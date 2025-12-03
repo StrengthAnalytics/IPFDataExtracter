@@ -562,6 +562,152 @@ export const api = {
   },
 
   /**
+   * Federation configuration for international filtering
+   */
+  getFederationConfig() {
+    // International federations by region
+    const regionalInternationalFeds: Record<string, string[]> = {
+      EUROPE: ['IPF', 'EPF', 'CommonwealthPF', 'NordicPF'],
+      NORTH_AMERICA: ['IPF', 'NAPF', 'CommonwealthPF'],
+      SOUTH_AMERICA: ['IPF', 'FESUPO'],
+      OCEANIA: ['IPF', 'ORPF', 'CommonwealthPF'],
+      ASIA: ['IPF', 'AsianPF', 'CommonwealthPF'],
+      AFRICA: ['IPF', 'AfricanPF', 'CommonwealthPF'],
+    };
+
+    // Map each national federation to its country code and region
+    const federationConfig: Record<string, { country: string; region: string }> = {
+      // UK & Home Nations
+      'BP': { country: 'UK', region: 'EUROPE' },
+      'EPA': { country: 'England', region: 'EUROPE' },
+      'ScottishPL': { country: 'Scotland', region: 'EUROPE' },
+      'WelshPA': { country: 'Wales', region: 'EUROPE' },
+      'NIPF': { country: 'N.Ireland', region: 'EUROPE' },
+
+      // Europe
+      'BVDK': { country: 'Germany', region: 'EUROPE' },
+      'FFForce': { country: 'France', region: 'EUROPE' },
+      'FIPL': { country: 'Italy', region: 'EUROPE' },
+      'NSF': { country: 'Norway', region: 'EUROPE' },
+      'SSF': { country: 'Sweden', region: 'EUROPE' },
+      'DSF': { country: 'Denmark', region: 'EUROPE' },
+      'KRAFT': { country: 'Iceland', region: 'EUROPE' },
+      'SVNL': { country: 'Finland', region: 'EUROPE' },
+      'PZKFiTS': { country: 'Poland', region: 'EUROPE' },
+      'CSST': { country: 'Czechia', region: 'EUROPE' },
+      'KDKS': { country: 'Switzerland', region: 'EUROPE' },
+      'OEVK': { country: 'Austria', region: 'EUROPE' },
+      'KNKF-SP': { country: 'Netherlands', region: 'EUROPE' },
+      'IPF-Belgium': { country: 'Belgium', region: 'EUROPE' },
+      'KBGV': { country: 'Belgium', region: 'EUROPE' },
+      'LFPH': { country: 'Belgium', region: 'EUROPE' },
+      'VGPF': { country: 'Belgium', region: 'EUROPE' },
+      'APP': { country: 'Portugal', region: 'EUROPE' },
+      'AEP': { country: 'Spain', region: 'EUROPE' },
+      'HPF': { country: 'Greece', region: 'EUROPE' },
+      'HPLS': { country: 'Croatia', region: 'EUROPE' },
+      'Hunpower': { country: 'Hungary', region: 'EUROPE' },
+      'PLZS': { country: 'Slovenia', region: 'EUROPE' },
+      'PLSS': { country: 'Serbia', region: 'EUROPE' },
+      'FRPL': { country: 'Romania', region: 'EUROPE' },
+      'BulgarianPF': { country: 'Bulgaria', region: 'EUROPE' },
+      'UkrainePF': { country: 'Ukraine', region: 'EUROPE' },
+      'FPR': { country: 'Russia', region: 'EUROPE' },
+      'BelPF': { country: 'Belarus', region: 'EUROPE' },
+      'LPF': { country: 'Latvia', region: 'EUROPE' },
+      'LJTF': { country: 'Lithuania', region: 'EUROPE' },
+      'EJTL': { country: 'Estonia', region: 'EUROPE' },
+      'IrishPF': { country: 'Ireland', region: 'EUROPE' },
+      'MaltaPA': { country: 'Malta', region: 'EUROPE' },
+      'CyprusPF': { country: 'Cyprus', region: 'EUROPE' },
+      'ILPF': { country: 'Israel', region: 'EUROPE' },
+      'TPSSF': { country: 'Türkiye', region: 'EUROPE' },
+      'SAFKST': { country: 'Slovakia', region: 'EUROPE' },
+      'PWFL': { country: 'Luxembourg', region: 'EUROPE' },
+      'ManxPL': { country: 'Isle of Man', region: 'EUROPE' },
+
+      // North America
+      'AMP': { country: 'USA', region: 'NORTH_AMERICA' },
+      'CPU': { country: 'Canada', region: 'NORTH_AMERICA' },
+      'FEMEPO': { country: 'Mexico', region: 'NORTH_AMERICA' },
+      'FPPR': { country: 'Puerto Rico', region: 'NORTH_AMERICA' },
+      'USVIPF': { country: 'US Virgin Islands', region: 'NORTH_AMERICA' },
+      'BPA': { country: 'Belize', region: 'NORTH_AMERICA' },
+      'Fedepotencia': { country: 'Guatemala', region: 'NORTH_AMERICA' },
+      'FPP': { country: 'Panama', region: 'NORTH_AMERICA' },
+      'NPAJ': { country: 'Jamaica', region: 'NORTH_AMERICA' },
+      'TTPF': { country: 'Trinidad and Tobago', region: 'NORTH_AMERICA' },
+      'GAPLF': { country: 'Guyana', region: 'NORTH_AMERICA' },
+      'PLRD': { country: 'Dominican Republic', region: 'NORTH_AMERICA' },
+
+      // South America
+      'CBLB': { country: 'Brazil', region: 'SOUTH_AMERICA' },
+      'FALPO': { country: 'Argentina', region: 'SOUTH_AMERICA' },
+      'FECHIPO': { country: 'Chile', region: 'SOUTH_AMERICA' },
+      'FCLP': { country: 'Colombia', region: 'SOUTH_AMERICA' },
+      'FEVEPO': { country: 'Venezuela', region: 'SOUTH_AMERICA' },
+      'FDNLP': { country: 'Peru', region: 'SOUTH_AMERICA' },
+      'FEFICULP': { country: 'Ecuador', region: 'SOUTH_AMERICA' },
+      'FULP': { country: 'Uruguay', region: 'SOUTH_AMERICA' },
+
+      // Oceania
+      'APLA': { country: 'Australia', region: 'OCEANIA' },
+      'NZPF': { country: 'New Zealand', region: 'OCEANIA' },
+      'NauruPF': { country: 'Nauru', region: 'OCEANIA' },
+      'PNGPF': { country: 'Papua New Guinea', region: 'OCEANIA' },
+
+      // Asia
+      'JPA': { country: 'Japan', region: 'ASIA' },
+      'POSK': { country: 'South Korea', region: 'ASIA' },
+      'IPF-China': { country: 'China', region: 'ASIA' },
+      'HKWPA': { country: 'Hong Kong', region: 'ASIA' },
+      'MAP': { country: 'Malaysia', region: 'ASIA' },
+      'PS': { country: 'Singapore', region: 'ASIA' },
+      'PAP': { country: 'Philippines', region: 'ASIA' },
+      'AIWBPA': { country: 'Indonesia', region: 'ASIA' },
+      'TAAP': { country: 'Thailand', region: 'ASIA' },
+      'VPF': { country: 'Vietnam', region: 'ASIA' },
+      'PI': { country: 'India', region: 'ASIA' },
+      'SLPF': { country: 'Sri Lanka', region: 'ASIA' },
+      'PFBD': { country: 'Brunei', region: 'ASIA' },
+      'MUPF': { country: 'Mongolia', region: 'ASIA' },
+      'KPF': { country: 'Kazakhstan', region: 'ASIA' },
+      'IranBBF': { country: 'Iran', region: 'ASIA' },
+      'IraqPF': { country: 'Iraq', region: 'ASIA' },
+      'KPC': { country: 'Kuwait', region: 'ASIA' },
+      'QatarPL': { country: 'Qatar', region: 'ASIA' },
+      'UAEPL': { country: 'UAE', region: 'ASIA' },
+      'SSSC': { country: 'Saudi Arabia', region: 'ASIA' },
+      'OCWP': { country: 'Oman', region: 'ASIA' },
+      'LebanonPF': { country: 'Lebanon', region: 'ASIA' },
+      'SAFP': { country: 'Syria', region: 'ASIA' },
+
+      // Africa
+      'SAPF': { country: 'South Africa', region: 'AFRICA' },
+      'EgyptPF': { country: 'Egypt', region: 'AFRICA' },
+      'FAPL': { country: 'Algeria', region: 'AFRICA' },
+      'FMPB': { country: 'Morocco', region: 'AFRICA' },
+      'LibyaPF': { country: 'Libya', region: 'AFRICA' },
+      'FECAPOLIF': { country: 'Cameroon', region: 'AFRICA' },
+    };
+
+    // International/regional federations (these don't need country mapping)
+    const internationalFederations = [
+      'IPF',
+      'EPF',
+      'AfricanPF',
+      'AsianPF',
+      'FESUPO',
+      'NAPF',
+      'ORPF',
+      'CommonwealthPF',
+      'NordicPF'
+    ];
+
+    return { regionalInternationalFeds, federationConfig, internationalFederations };
+  },
+
+  /**
    * Get top rankings based on filters
    */
   async getTopRankings(params: {
@@ -593,13 +739,116 @@ export const api = {
       .not(sortBy, 'is', null)
       .gt(sortBy, 0);
 
-    // Apply filters
+    // Apply federation filters
     if (federation) {
-      // Handle multiple federations (e.g., "IPF,AfricanPF,AsianPF")
+      const { regionalInternationalFeds, federationConfig, internationalFederations } = this.getFederationConfig();
+
+      // Handle "All Internationals" (comma-separated list)
       if (federation.includes(',')) {
         const federations = federation.split(',');
         query = query.in('federation', federations);
-      } else {
+      }
+      // Handle international/regional federations (just filter by federation)
+      else if (internationalFederations.includes(federation)) {
+        query = query.eq('federation', federation);
+      }
+      // Handle national federations (include national meets + international meets for that country)
+      else if (federationConfig[federation]) {
+        const config = federationConfig[federation];
+        const internationalFeds = regionalInternationalFeds[config.region];
+
+        // Build OR condition: (federation = national) OR (federation IN internationals AND country = country)
+        // We need to fetch all records and filter client-side due to Supabase OR limitations with complex conditions
+        // Alternative: fetch in two queries and merge
+
+        // Query 1: National federation meets
+        const { data: nationalData, error: nationalError } = await supabase
+          .from('lifter_records')
+          .select('*')
+          .eq('federation', federation)
+          .not(sortBy, 'is', null)
+          .gt(sortBy, 0)
+          .order(sortBy, { ascending: false })
+          .limit(limit * 5);
+
+        if (nationalError) throw new APIError(500, nationalError.message);
+
+        // Query 2: International meets for lifters from that country
+        const { data: intlData, error: intlError } = await supabase
+          .from('lifter_records')
+          .select('*')
+          .in('federation', internationalFeds)
+          .eq('country', config.country)
+          .not(sortBy, 'is', null)
+          .gt(sortBy, 0)
+          .order(sortBy, { ascending: false })
+          .limit(limit * 5);
+
+        if (intlError) throw new APIError(500, intlError.message);
+
+        // Merge and continue with other filters
+        const mergedRecords = [...(nationalData || []), ...(intlData || [])];
+
+        // Apply remaining filters to merged data
+        let filteredRecords = mergedRecords;
+
+        if (equipment) {
+          filteredRecords = filteredRecords.filter(r => r.equipment === equipment);
+        }
+        if (sex) {
+          filteredRecords = filteredRecords.filter(r => r.sex === sex);
+        }
+        if (weightClass) {
+          filteredRecords = filteredRecords.filter(r => r.weight_class_kg === weightClass);
+        }
+        if (year) {
+          const startDate = `${year}-01-01`;
+          const endDate = `${year}-12-31`;
+          filteredRecords = filteredRecords.filter(r => r.date >= startDate && r.date <= endDate);
+        }
+        if (eventType && eventType !== 'ALL') {
+          filteredRecords = filteredRecords.filter(r => r.event === eventType);
+        }
+
+        // Age class filtering
+        if (ageClass && ageClass !== 'Open') {
+          const ageClassPatterns: Record<string, string[]> = {
+            'Sub-Junior': ['sub-junior', 'sub junior', 'subjunior'],
+            'Junior': ['junior'],
+            'Senior': ['senior'],
+            'Master 1': ['master 1', 'm1', 'masters 1', 'master1'],
+            'Master 2': ['master 2', 'm2', 'masters 2', 'master2'],
+            'Master 3': ['master 3', 'm3', 'masters 3', 'master3'],
+            'Master 4': ['master 4', 'm4', 'masters 4', 'master4']
+          };
+
+          const patterns = ageClassPatterns[ageClass] || [];
+          if (patterns.length > 0) {
+            filteredRecords = filteredRecords.filter(r => {
+              if (!r.division) return false;
+              const divLower = r.division.toLowerCase();
+              return patterns.some(p => divLower.includes(p));
+            });
+          }
+        }
+
+        // Deduplicate and return
+        const lifterBest = new Map<string, any>();
+        for (const record of filteredRecords) {
+          const existing = lifterBest.get(record.name);
+          if (!existing || record[sortBy] > existing[sortBy]) {
+            lifterBest.set(record.name, record);
+          }
+        }
+
+        const uniqueLifters = Array.from(lifterBest.values())
+          .sort((a, b) => b[sortBy] - a[sortBy])
+          .slice(0, limit);
+
+        return uniqueLifters;
+      }
+      // Unknown federation - just filter by it
+      else {
         query = query.eq('federation', federation);
       }
     }
