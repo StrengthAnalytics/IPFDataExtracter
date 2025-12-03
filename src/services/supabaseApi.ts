@@ -546,6 +546,113 @@ export const api = {
   },
 
   /**
+   * Get all federations
+   */
+  async getFederations(): Promise<{ federations: string[] }> {
+    const { data, error } = await supabase
+      .from('lifter_records')
+      .select('federation')
+      .not('federation', 'is', null);
+
+    if (error) throw new APIError(500, error.message);
+
+    const federations = [...new Set((data || []).map((r: any) => r.federation))].sort();
+
+    return { federations };
+  },
+
+  /**
+   * Get top rankings based on filters
+   */
+  async getTopRankings(params: {
+    sortBy: 'goodlift' | 'best3_squat_kg' | 'best3_bench_kg' | 'best3_deadlift_kg' | 'total_kg';
+    federation?: string;
+    equipment?: string;
+    sex?: string;
+    weightClass?: string;
+    ageClass?: string;
+    year?: string;
+    eventType?: string;
+    limit?: number;
+  }): Promise<any[]> {
+    const {
+      sortBy,
+      federation,
+      equipment,
+      sex,
+      weightClass,
+      ageClass,
+      year,
+      eventType,
+      limit = 10
+    } = params;
+
+    let query = supabase
+      .from('lifter_records')
+      .select('*')
+      .not(sortBy, 'is', null)
+      .gt(sortBy, 0);
+
+    // Apply filters
+    if (federation) {
+      query = query.eq('federation', federation);
+    }
+    if (equipment) {
+      query = query.eq('equipment', equipment);
+    }
+    if (sex) {
+      query = query.eq('sex', sex);
+    }
+    if (weightClass) {
+      query = query.eq('weight_class_kg', weightClass);
+    }
+    if (year) {
+      const startDate = `${year}-01-01`;
+      const endDate = `${year}-12-31`;
+      query = query.gte('date', startDate).lte('date', endDate);
+    }
+    if (eventType && eventType !== 'ALL') {
+      if (eventType === 'SBD') {
+        query = query.eq('event', 'SBD');
+      } else if (eventType === 'B') {
+        query = query.eq('event', 'B');
+      } else if (eventType === 'D') {
+        query = query.eq('event', 'D');
+      }
+    }
+
+    // Age class filtering (using division field)
+    if (ageClass && ageClass !== 'Open') {
+      // Map age classes to common division patterns
+      const ageClassPatterns: Record<string, string[]> = {
+        'Sub-Junior': ['sub-junior', 'sub junior', 'subjunior'],
+        'Junior': ['junior'],
+        'Senior': ['senior'],
+        'Master 1': ['master 1', 'm1', 'masters 1', 'master1'],
+        'Master 2': ['master 2', 'm2', 'masters 2', 'master2'],
+        'Master 3': ['master 3', 'm3', 'masters 3', 'master3'],
+        'Master 4': ['master 4', 'm4', 'masters 4', 'master4']
+      };
+
+      const patterns = ageClassPatterns[ageClass] || [];
+      if (patterns.length > 0) {
+        // Use ilike for case-insensitive pattern matching
+        const conditions = patterns.map(p => `division.ilike.%${p}%`).join(',');
+        query = query.or(conditions);
+      }
+    }
+
+    // Order by the sort field and limit results
+    query = query.order(sortBy, { ascending: false }).limit(limit);
+
+    const { data, error } = await query;
+
+    if (error) throw new APIError(500, error.message);
+
+    return data || [];
+  },
+
+  /**
    * Health check - verify Supabase connection
    */
   async healthCheck(): Promise<{ status: string; service: string }> {

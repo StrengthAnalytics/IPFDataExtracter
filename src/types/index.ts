@@ -133,3 +133,32 @@ export interface ComparisonData {
   timeframe_years: number;
   lifters: BestLifts[];
 }
+
+export interface RankingRecord {
+  name: string;
+  sex: string;
+  date: string;
+  meet_name: string;
+  federation: string;
+  equipment: string;
+  weight_class_kg: string;
+  bodyweight_kg?: number;
+  best3_squat_kg?: number;
+  best3_bench_kg?: number;
+  best3_deadlift_kg?: number;
+  total_kg?: number;
+  goodlift?: number;
+  place?: string;
+  division?: string;
+}
+
+export interface RankingFilters {
+  sortBy: 'goodlift' | 'best3_squat_kg' | 'best3_bench_kg' | 'best3_deadlift_kg' | 'total_kg';
+  federation?: string;
+  equipment?: string;
+  sex?: string;
+  weightClass?: string;
+  ageClass?: string;
+  year?: string;
+  eventType?: string;
+}
