@@ -233,10 +233,11 @@ export const api = {
     endDate?: string,
     equipment?: string,
     weightClass?: string,
-    aggregationMode: 'byLift' | 'byComp' = 'byLift'
+    aggregationMode: 'byLift' | 'byComp' = 'byLift',
+    rankingMethod: 'total' | 'ipfgl' = 'total'
   ): Promise<ComparisonData> {
     const lifterData = await Promise.all(
-      lifters.map(name => this.getBestLiftsInDateRange(name, startDate, endDate, equipment, weightClass, aggregationMode))
+      lifters.map(name => this.getBestLiftsInDateRange(name, startDate, endDate, equipment, weightClass, aggregationMode, rankingMethod))
     );
 
     return {
@@ -254,7 +255,8 @@ export const api = {
     endDate?: string,
     equipment?: string,
     weightClass?: string,
-    aggregationMode: 'byLift' | 'byComp' = 'byLift'
+    aggregationMode: 'byLift' | 'byComp' = 'byLift',
+    rankingMethod: 'total' | 'ipfgl' = 'total'
   ): Promise<BestLifts> {
     let query = supabase
       .from('lifter_records')
@@ -280,17 +282,21 @@ export const api = {
     const records = data || [];
 
     if (aggregationMode === 'byComp') {
-      // Find the competition with the best total
-      const bestTotalComp = findBestLift(records, 'total_kg');
+      // Find the competition with the best total or IPF GL based on ranking method
+      const searchColumn = rankingMethod === 'ipfgl' ? 'goodlift' : 'total_kg';
+
+      // Filter records to only include those with valid values for the search column
+      const validRecords = records.filter(r => r[searchColumn] && r[searchColumn] > 0);
+      const bestComp = findBestLift(validRecords, searchColumn);
 
       return {
         name,
         timeframe_years: 0,
         total_competitions: records.length,
-        best_squat: bestTotalComp ? formatLiftAttempts(bestTotalComp) : undefined,
-        best_bench: bestTotalComp ? formatLiftAttempts(bestTotalComp) : undefined,
-        best_deadlift: bestTotalComp ? formatLiftAttempts(bestTotalComp) : undefined,
-        best_total: bestTotalComp ? formatLiftAttempts(bestTotalComp) : undefined
+        best_squat: bestComp ? formatLiftAttempts(bestComp) : undefined,
+        best_bench: bestComp ? formatLiftAttempts(bestComp) : undefined,
+        best_deadlift: bestComp ? formatLiftAttempts(bestComp) : undefined,
+        best_total: bestComp ? formatLiftAttempts(bestComp) : undefined
       };
     } else {
       // By Lift: Find best for each lift individually (cherry-picked)
@@ -553,6 +559,7 @@ function formatLiftAttempts(record: any): LiftAttempts {
     deadlift2_kg: record.deadlift2_kg,
     deadlift3_kg: record.deadlift3_kg,
     total_kg: record.total_kg,
+    goodlift: record.goodlift,
     place: record.place
   };
 }

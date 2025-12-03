@@ -7,6 +7,7 @@ type SortColumn = 'name' | 'squat' | 'bench' | 'deadlift' | 'total' | 'meets';
 type SortDirection = 'asc' | 'desc';
 type ViewMode = 'list' | 'tiles';
 type AggregationMode = 'byLift' | 'byComp';
+type RankingMethod = 'total' | 'ipfgl';
 
 export function Scout() {
   const [selectedLifters, setSelectedLifters] = useState<string[]>([]);
@@ -21,6 +22,7 @@ export function Scout() {
   const [useFuzzySearch, setUseFuzzySearch] = useState(false);
   const [showFuzzyInfo, setShowFuzzyInfo] = useState(false);
   const [aggregationMode, setAggregationMode] = useState<AggregationMode>('byLift');
+  const [rankingMethod, setRankingMethod] = useState<RankingMethod>('total');
 
   // Set responsive default: tiles for mobile, list for desktop
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -64,7 +66,8 @@ export function Scout() {
           endDate || undefined,
           undefined,
           weightClass || undefined,
-          aggregationMode
+          aggregationMode,
+          rankingMethod
         );
         setComparisonData(result.lifters);
       } catch (error) {
@@ -75,7 +78,7 @@ export function Scout() {
     };
 
     fetchComparison();
-  }, [selectedLifters, startDate, endDate, weightClass, aggregationMode]);
+  }, [selectedLifters, startDate, endDate, weightClass, aggregationMode, rankingMethod]);
 
   const handleAddLifter = (lifter: LifterSearchResult) => {
     if (!selectedLifters.includes(lifter.name) && selectedLifters.length < 10) {
@@ -89,6 +92,7 @@ export function Scout() {
 
   const formatWeight = (kg?: number) => kg ? `${kg} kg` : '-';
   const formatDate = (date?: string) => date ? new Date(date).toLocaleDateString() : '-';
+  const formatIPFGL = (points?: number) => points ? `${points.toFixed(2)} pts` : '-';
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -126,8 +130,13 @@ export function Scout() {
           bValue = b.best_deadlift?.best3_deadlift_kg || 0;
           break;
         case 'total':
-          aValue = a.best_total?.total_kg || 0;
-          bValue = b.best_total?.total_kg || 0;
+          if (rankingMethod === 'ipfgl') {
+            aValue = a.best_total?.goodlift || 0;
+            bValue = b.best_total?.goodlift || 0;
+          } else {
+            aValue = a.best_total?.total_kg || 0;
+            bValue = b.best_total?.total_kg || 0;
+          }
           break;
         case 'meets':
           aValue = a.total_competitions;
@@ -154,6 +163,34 @@ export function Scout() {
       return <span className="text-gray-600 ml-1">⇅</span>;
     }
     return <span className="text-primary-500 ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  // Format attempts - negative values indicate failed attempts
+  const formatAttempt = (weight?: number) => {
+    if (!weight || weight === 0) return null;
+    const absWeight = Math.abs(weight);
+    const failed = weight < 0;
+    return { weight: absWeight, failed };
+  };
+
+  const renderAttempts = (attempt1?: number, attempt2?: number, attempt3?: number, color: string = 'text-gray-300') => {
+    const attempts = [formatAttempt(attempt1), formatAttempt(attempt2), formatAttempt(attempt3)];
+
+    return (
+      <div className="flex gap-1.5 text-xs">
+        {attempts.map((attempt, idx) => {
+          if (!attempt) return <span key={idx} className="text-gray-700">-</span>;
+          return (
+            <span
+              key={idx}
+              className={`${attempt.failed ? 'line-through text-red-500/70' : color}`}
+            >
+              {attempt.weight}
+            </span>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -349,6 +386,33 @@ export function Scout() {
                 </div>
               </div>
 
+              {/* Ranking Method Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">Rank by:</span>
+                <div className="inline-flex rounded-lg bg-gray-800 p-1">
+                  <button
+                    onClick={() => setRankingMethod('total')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      rankingMethod === 'total'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Total
+                  </button>
+                  <button
+                    onClick={() => setRankingMethod('ipfgl')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      rankingMethod === 'ipfgl'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    IPF GL
+                  </button>
+                </div>
+              </div>
+
               {/* View Mode Toggle */}
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-400">View:</span>
@@ -412,7 +476,7 @@ export function Scout() {
                   className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
                   onClick={() => handleSort('total')}
                 >
-                  Best Total<SortIcon column="total" />
+                  {rankingMethod === 'total' ? 'Best Total' : 'IPF GL Score'}<SortIcon column="total" />
                 </th>
                 <th
                   className="text-center py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
@@ -432,8 +496,9 @@ export function Scout() {
                     {lifter.best_squat ? (
                       <div>
                         <div className="font-semibold text-green-400">{formatWeight(lifter.best_squat.best3_squat_kg)}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_squat.date)}</div>
-                        <div className="text-xs text-gray-600">{lifter.best_squat.meet_name}</div>
+                        {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_squat.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_squat.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
@@ -441,8 +506,9 @@ export function Scout() {
                     {lifter.best_bench ? (
                       <div>
                         <div className="font-semibold text-blue-400">{formatWeight(lifter.best_bench.best3_bench_kg)}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_bench.date)}</div>
-                        <div className="text-xs text-gray-600">{lifter.best_bench.meet_name}</div>
+                        {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_bench.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_bench.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
@@ -450,17 +516,28 @@ export function Scout() {
                     {lifter.best_deadlift ? (
                       <div>
                         <div className="font-semibold text-red-400">{formatWeight(lifter.best_deadlift.best3_deadlift_kg)}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_deadlift.date)}</div>
-                        <div className="text-xs text-gray-600">{lifter.best_deadlift.meet_name}</div>
+                        {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_deadlift.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_deadlift.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
                   <td className="py-3 px-4">
                     {lifter.best_total ? (
                       <div>
-                        <div className="font-semibold text-purple-400">{formatWeight(lifter.best_total.total_kg)}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_total.date)}</div>
-                        <div className="text-xs text-gray-600">{lifter.best_total.meet_name}</div>
+                        {rankingMethod === 'total' ? (
+                          <>
+                            <div className="font-semibold text-purple-400">{formatWeight(lifter.best_total.total_kg)}</div>
+                            <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-semibold text-purple-400">{formatIPFGL(lifter.best_total.goodlift)}</div>
+                            <div className="text-xs text-gray-500">{formatWeight(lifter.best_total.total_kg)}</div>
+                          </>
+                        )}
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_total.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_total.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
@@ -488,7 +565,8 @@ export function Scout() {
                       {lifter.best_squat ? (
                         <div>
                           <div className="font-semibold text-green-400 text-lg">{formatWeight(lifter.best_squat.best3_squat_kg)}</div>
-                          <div className="text-xs text-gray-500">{formatDate(lifter.best_squat.date)}</div>
+                          {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
+                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_squat.date)}</div>
                           <div className="text-xs text-gray-600 truncate">{lifter.best_squat.meet_name}</div>
                         </div>
                       ) : <span className="text-gray-600">-</span>}
@@ -500,7 +578,8 @@ export function Scout() {
                       {lifter.best_bench ? (
                         <div>
                           <div className="font-semibold text-blue-400 text-lg">{formatWeight(lifter.best_bench.best3_bench_kg)}</div>
-                          <div className="text-xs text-gray-500">{formatDate(lifter.best_bench.date)}</div>
+                          {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
+                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_bench.date)}</div>
                           <div className="text-xs text-gray-600 truncate">{lifter.best_bench.meet_name}</div>
                         </div>
                       ) : <span className="text-gray-600">-</span>}
@@ -512,7 +591,8 @@ export function Scout() {
                       {lifter.best_deadlift ? (
                         <div>
                           <div className="font-semibold text-red-400 text-lg">{formatWeight(lifter.best_deadlift.best3_deadlift_kg)}</div>
-                          <div className="text-xs text-gray-500">{formatDate(lifter.best_deadlift.date)}</div>
+                          {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
+                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_deadlift.date)}</div>
                           <div className="text-xs text-gray-600 truncate">{lifter.best_deadlift.meet_name}</div>
                         </div>
                       ) : <span className="text-gray-600">-</span>}
@@ -520,11 +600,21 @@ export function Scout() {
 
                     {/* Total */}
                     <div className="pt-2 border-t border-gray-700">
-                      <div className="text-xs text-gray-500 mb-1">Total</div>
+                      <div className="text-xs text-gray-500 mb-1">{rankingMethod === 'total' ? 'Total' : 'IPF GL Score'}</div>
                       {lifter.best_total ? (
                         <div>
-                          <div className="font-bold text-purple-400 text-xl">{formatWeight(lifter.best_total.total_kg)}</div>
-                          <div className="text-xs text-gray-500">{formatDate(lifter.best_total.date)}</div>
+                          {rankingMethod === 'total' ? (
+                            <>
+                              <div className="font-bold text-purple-400 text-xl">{formatWeight(lifter.best_total.total_kg)}</div>
+                              <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="font-bold text-purple-400 text-xl">{formatIPFGL(lifter.best_total.goodlift)}</div>
+                              <div className="text-xs text-gray-500">{formatWeight(lifter.best_total.total_kg)}</div>
+                            </>
+                          )}
+                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_total.date)}</div>
                           <div className="text-xs text-gray-600 truncate">{lifter.best_total.meet_name}</div>
                         </div>
                       ) : <span className="text-gray-600">-</span>}
