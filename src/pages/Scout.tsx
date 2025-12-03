@@ -66,7 +66,8 @@ export function Scout() {
           endDate || undefined,
           undefined,
           weightClass || undefined,
-          aggregationMode
+          aggregationMode,
+          rankingMethod
         );
         setComparisonData(result.lifters);
       } catch (error) {
@@ -77,7 +78,7 @@ export function Scout() {
     };
 
     fetchComparison();
-  }, [selectedLifters, startDate, endDate, weightClass, aggregationMode]);
+  }, [selectedLifters, startDate, endDate, weightClass, aggregationMode, rankingMethod]);
 
   const handleAddLifter = (lifter: LifterSearchResult) => {
     if (!selectedLifters.includes(lifter.name) && selectedLifters.length < 10) {
