@@ -156,6 +156,34 @@ export function Scout() {
     return <span className="text-primary-500 ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
   };
 
+  // Format attempts - negative values indicate failed attempts
+  const formatAttempt = (weight?: number) => {
+    if (!weight || weight === 0) return null;
+    const absWeight = Math.abs(weight);
+    const failed = weight < 0;
+    return { weight: absWeight, failed };
+  };
+
+  const renderAttempts = (attempt1?: number, attempt2?: number, attempt3?: number, color: string = 'text-gray-300') => {
+    const attempts = [formatAttempt(attempt1), formatAttempt(attempt2), formatAttempt(attempt3)];
+
+    return (
+      <div className="flex gap-1.5 text-xs">
+        {attempts.map((attempt, idx) => {
+          if (!attempt) return <span key={idx} className="text-gray-700">-</span>;
+          return (
+            <span
+              key={idx}
+              className={`${attempt.failed ? 'line-through text-red-500/70' : color}`}
+            >
+              {attempt.weight}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -432,8 +460,9 @@ export function Scout() {
                     {lifter.best_squat ? (
                       <div>
                         <div className="font-semibold text-green-400">{formatWeight(lifter.best_squat.best3_squat_kg)}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_squat.date)}</div>
-                        <div className="text-xs text-gray-600">{lifter.best_squat.meet_name}</div>
+                        {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_squat.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_squat.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
@@ -441,8 +470,9 @@ export function Scout() {
                     {lifter.best_bench ? (
                       <div>
                         <div className="font-semibold text-blue-400">{formatWeight(lifter.best_bench.best3_bench_kg)}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_bench.date)}</div>
-                        <div className="text-xs text-gray-600">{lifter.best_bench.meet_name}</div>
+                        {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_bench.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_bench.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
@@ -450,8 +480,9 @@ export function Scout() {
                     {lifter.best_deadlift ? (
                       <div>
                         <div className="font-semibold text-red-400">{formatWeight(lifter.best_deadlift.best3_deadlift_kg)}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_deadlift.date)}</div>
-                        <div className="text-xs text-gray-600">{lifter.best_deadlift.meet_name}</div>
+                        {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_deadlift.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_deadlift.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
@@ -459,8 +490,8 @@ export function Scout() {
                     {lifter.best_total ? (
                       <div>
                         <div className="font-semibold text-purple-400">{formatWeight(lifter.best_total.total_kg)}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_total.date)}</div>
-                        <div className="text-xs text-gray-600">{lifter.best_total.meet_name}</div>
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_total.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_total.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
@@ -488,7 +519,8 @@ export function Scout() {
                       {lifter.best_squat ? (
                         <div>
                           <div className="font-semibold text-green-400 text-lg">{formatWeight(lifter.best_squat.best3_squat_kg)}</div>
-                          <div className="text-xs text-gray-500">{formatDate(lifter.best_squat.date)}</div>
+                          {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
+                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_squat.date)}</div>
                           <div className="text-xs text-gray-600 truncate">{lifter.best_squat.meet_name}</div>
                         </div>
                       ) : <span className="text-gray-600">-</span>}
@@ -500,7 +532,8 @@ export function Scout() {
                       {lifter.best_bench ? (
                         <div>
                           <div className="font-semibold text-blue-400 text-lg">{formatWeight(lifter.best_bench.best3_bench_kg)}</div>
-                          <div className="text-xs text-gray-500">{formatDate(lifter.best_bench.date)}</div>
+                          {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
+                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_bench.date)}</div>
                           <div className="text-xs text-gray-600 truncate">{lifter.best_bench.meet_name}</div>
                         </div>
                       ) : <span className="text-gray-600">-</span>}
@@ -512,7 +545,8 @@ export function Scout() {
                       {lifter.best_deadlift ? (
                         <div>
                           <div className="font-semibold text-red-400 text-lg">{formatWeight(lifter.best_deadlift.best3_deadlift_kg)}</div>
-                          <div className="text-xs text-gray-500">{formatDate(lifter.best_deadlift.date)}</div>
+                          {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
+                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_deadlift.date)}</div>
                           <div className="text-xs text-gray-600 truncate">{lifter.best_deadlift.meet_name}</div>
                         </div>
                       ) : <span className="text-gray-600">-</span>}
@@ -524,7 +558,7 @@ export function Scout() {
                       {lifter.best_total ? (
                         <div>
                           <div className="font-bold text-purple-400 text-xl">{formatWeight(lifter.best_total.total_kg)}</div>
-                          <div className="text-xs text-gray-500">{formatDate(lifter.best_total.date)}</div>
+                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_total.date)}</div>
                           <div className="text-xs text-gray-600 truncate">{lifter.best_total.meet_name}</div>
                         </div>
                       ) : <span className="text-gray-600">-</span>}
