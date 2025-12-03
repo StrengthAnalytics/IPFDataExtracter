@@ -303,7 +303,11 @@ export const api = {
       const bestSquat = findBestLift(records, 'best3_squat_kg');
       const bestBench = findBestLift(records, 'best3_bench_kg');
       const bestDeadlift = findBestLift(records, 'best3_deadlift_kg');
-      const bestTotal = findBestLift(records, 'total_kg');
+
+      // For the total column, use the ranking method to determine which competition to show
+      const totalColumn = rankingMethod === 'ipfgl' ? 'goodlift' : 'total_kg';
+      const validTotalRecords = records.filter(r => r[totalColumn] && r[totalColumn] > 0);
+      const bestTotal = findBestLift(validTotalRecords, totalColumn);
 
       return {
         name,
