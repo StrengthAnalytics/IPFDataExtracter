@@ -9,72 +9,70 @@ type ViewMode = 'list' | 'tiles';
 type AggregationMode = 'byLift' | 'byComp';
 type RankingMethod = 'total' | 'ipfgl';
 type TrendRange = 12 | 18 | 24;
-type RegressionType = 'linear' | 'logarithmic';
 
-// Linear regression calculation
-function linearRegression(points: { x: number; y: number }[]): { slope: number; intercept: number; rSquared: number } {
-  const n = points.length;
-  if (n < 2) return { slope: 0, intercept: 0, rSquared: 0 };
-
-  const sumX = points.reduce((s, p) => s + p.x, 0);
-  const sumY = points.reduce((s, p) => s + p.y, 0);
-  const sumXY = points.reduce((s, p) => s + p.x * p.y, 0);
-  const sumXX = points.reduce((s, p) => s + p.x * p.x, 0);
-
-  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-  const intercept = (sumY - slope * sumX) / n;
-
-  // Calculate R²
-  const meanY = sumY / n;
-  const ssTotal = points.reduce((s, p) => s + Math.pow(p.y - meanY, 2), 0);
-  const ssResidual = points.reduce((s, p) => s + Math.pow(p.y - (intercept + slope * p.x), 2), 0);
-  const rSquared = ssTotal === 0 ? 0 : 1 - (ssResidual / ssTotal);
-
-  return { slope, intercept, rSquared };
+interface VelocityBreakdown {
+  vRecent: number;      // kg/month between last two points
+  vOverall: number;     // kg/month from first to last point
+  vWeighted: number;    // 70% recent + 30% overall
+  finalVelocity: number; // After 0.9 friction
 }
 
-// Logarithmic regression calculation
-// Model: total = a × ln(days + 1) + b
-function logarithmicRegression(points: { x: number; y: number }[]): { a: number; b: number; rSquared: number } {
-  const n = points.length;
-  if (n < 2) return { a: 0, b: 0, rSquared: 0 };
+// Dampened Velocity Method for powerlifting predictions
+// Respects current momentum with biological friction to prevent unrealistic projections
+function calculateDampenedVelocity(
+  competitions: CompetitionHistoryItem[]
+): VelocityBreakdown | null {
+  // Need at least 2 data points
+  if (competitions.length < 2) return null;
 
-  // Transform x values: use ln(x + 1) to handle day 0
-  const transformed = points.map(p => ({
-    lnX: Math.log(p.x + 1),  // +1 to avoid ln(0)
-    y: p.y
-  }));
+  // Sort by date (oldest first)
+  const sorted = [...competitions].sort((a, b) =>
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
 
-  const sumLnX = transformed.reduce((s, p) => s + p.lnX, 0);
-  const sumY = transformed.reduce((s, p) => s + p.y, 0);
-  const sumLnXY = transformed.reduce((s, p) => s + p.lnX * p.y, 0);
-  const sumLnX2 = transformed.reduce((s, p) => s + p.lnX * p.lnX, 0);
+  const DAYS_PER_MONTH = 30.44;
 
-  const a = (n * sumLnXY - sumLnX * sumY) / (n * sumLnX2 - sumLnX * sumLnX);
-  const b = (sumY - a * sumLnX) / n;
+  // Get key data points
+  const first = sorted[0];
+  const secondToLast = sorted[sorted.length - 2];
+  const last = sorted[sorted.length - 1];
 
-  // Calculate R² to measure fit quality
-  const meanY = sumY / n;
-  const ssTotal = points.reduce((s, p) => s + Math.pow(p.y - meanY, 2), 0);
-  const ssResidual = points.reduce((s, p) => {
-    const predicted = a * Math.log(p.x + 1) + b;
-    return s + Math.pow(p.y - predicted, 2);
-  }, 0);
-  const rSquared = ssTotal === 0 ? 0 : 1 - (ssResidual / ssTotal);
+  // Calculate time deltas in months
+  const monthsBetweenLastTwo =
+    (new Date(last.date).getTime() - new Date(secondToLast.date).getTime()) /
+    (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
 
-  return { a, b, rSquared };
+  const monthsOverall =
+    (new Date(last.date).getTime() - new Date(first.date).getTime()) /
+    (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
+
+  // Calculate velocities (kg/month)
+  const vRecent = monthsBetweenLastTwo > 0
+    ? (last.total_kg - secondToLast.total_kg) / monthsBetweenLastTwo
+    : 0;
+
+  const vOverall = monthsOverall > 0
+    ? (last.total_kg - first.total_kg) / monthsOverall
+    : 0;
+
+  // Weighted velocity (70% recent, 30% overall)
+  const vWeighted = (0.7 * vRecent) + (0.3 * vOverall);
+
+  // Apply friction coefficient (biological adaptation)
+  const finalVelocity = vWeighted * 0.9;
+
+  return {
+    vRecent,
+    vOverall,
+    vWeighted,
+    finalVelocity
+  };
 }
 
-// Predict total using logarithmic model
-function predictLogarithmicTotal(targetDays: number, a: number, b: number): number {
-  return a * Math.log(targetDays + 1) + b;
-}
-
-// Calculate prediction for a lifter
+// Calculate prediction for a lifter using Dampened Velocity Method
 function calculatePrediction(
   competitions: CompetitionHistoryItem[],
-  targetDate: string,
-  regressionType: RegressionType = 'linear'
+  targetDate: string
 ): PredictionAnalysis {
   const hasEnoughData = competitions.length >= 2;
 
@@ -91,54 +89,43 @@ function calculatePrediction(
     };
   }
 
-  // Convert dates to days since first competition
-  const firstDate = new Date(competitions[0].date);
-  const points = competitions.map(comp => ({
-    x: Math.floor((new Date(comp.date).getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)),
-    y: comp.total_kg
-  }));
+  // Calculate velocity breakdown
+  const velocity = calculateDampenedVelocity(competitions);
 
-  const targetDateObj = new Date(targetDate);
-  const daysSinceFirst = Math.floor((targetDateObj.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
-
-  let predictedTotal: number;
-  let ratePerYear: number;
-  let rSquared: number;
-
-  if (regressionType === 'logarithmic') {
-    // Use logarithmic regression
-    const { a, b, rSquared: r2 } = logarithmicRegression(points);
-    rSquared = r2;
-
-    // Calculate predicted value
-    predictedTotal = predictLogarithmicTotal(daysSinceFirst, a, b);
-
-    // Calculate rate per year by comparing current prediction to prediction one year ago
-    const daysInYear = 365;
-    const currentDays = Math.max(0, daysSinceFirst);
-    const oneYearAgoDays = Math.max(0, currentDays - daysInYear);
-    const currentPrediction = predictLogarithmicTotal(currentDays, a, b);
-    const oneYearAgoPrediction = predictLogarithmicTotal(oneYearAgoDays, a, b);
-    ratePerYear = currentPrediction - oneYearAgoPrediction;
-
-    // If negative rate, use most recent competition
-    if (ratePerYear < 0) {
-      predictedTotal = competitions[competitions.length - 1].total_kg;
-    }
-  } else {
-    // Use linear regression
-    const { slope, intercept, rSquared: r2 } = linearRegression(points);
-    rSquared = r2;
-    ratePerYear = slope * 365;
-
-    // Calculate predicted value
-    predictedTotal = intercept + slope * daysSinceFirst;
-
-    // If negative trend, use most recent competition
-    if (slope < 0) {
-      predictedTotal = competitions[competitions.length - 1].total_kg;
-    }
+  if (!velocity) {
+    return {
+      predictedTotal: null,
+      targetDate,
+      ratePerYear: 0,
+      trend: 'stable',
+      competitionsInRange: competitions.length,
+      rSquared: 0,
+      hasEnoughData: false,
+      competitions
+    };
   }
+
+  // Sort competitions by date
+  const sorted = [...competitions].sort((a, b) =>
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const lastComp = sorted[sorted.length - 1];
+  const lastTotal = lastComp.total_kg;
+  const lastDate = new Date(lastComp.date);
+  const targetDateObj = new Date(targetDate);
+
+  // Calculate months to future date
+  const DAYS_PER_MONTH = 30.44;
+  const monthsToFuture =
+    (targetDateObj.getTime() - lastDate.getTime()) /
+    (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
+
+  // Apply the prediction formula
+  let predictedTotal = lastTotal + (monthsToFuture * velocity.finalVelocity);
+
+  // Convert rate to kg/year for display
+  const ratePerYear = velocity.finalVelocity * 12;
 
   // Determine trend
   let trend: 'improving' | 'declining' | 'stable' = 'stable';
@@ -148,6 +135,13 @@ function calculatePrediction(
 
   // Round to nearest 2.5 kg
   predictedTotal = Math.round(predictedTotal / 2.5) * 2.5;
+
+  // Calculate R² based on velocity consistency (approximation)
+  // Higher consistency = higher R²
+  const velocityRatio = velocity.vOverall !== 0
+    ? Math.abs(velocity.vRecent / velocity.vOverall)
+    : 1;
+  const rSquared = Math.max(0, Math.min(1, 1 - Math.abs(1 - velocityRatio) * 0.5));
 
   return {
     predictedTotal,
@@ -240,7 +234,6 @@ export function Scout() {
     return sixMonthsOut.toISOString().split('T')[0];
   });
   const [trendRange, setTrendRange] = useState<TrendRange>(18);
-  const [regressionType, setRegressionType] = useState<RegressionType>('linear');
   const [predictions, setPredictions] = useState<Map<string, PredictionAnalysis>>(new Map());
   const [isPredicting, setIsPredicting] = useState(false);
   const [showCharts, setShowCharts] = useState(false);
@@ -357,7 +350,7 @@ export function Scout() {
                 weightClass || undefined,
                 undefined // equipment - could add later
               );
-              const prediction = calculatePrediction(history, targetDate, regressionType);
+              const prediction = calculatePrediction(history, targetDate);
               newPredictions.set(lifterName, prediction);
             } catch (error) {
               console.error(`Error fetching prediction for ${lifterName}:`, error);
@@ -372,7 +365,7 @@ export function Scout() {
     };
 
     fetchPredictions();
-  }, [predictionEnabled, selectedLifters, targetDate, trendRange, weightClass, regressionType]);
+  }, [predictionEnabled, selectedLifters, targetDate, trendRange, weightClass]);
 
   const handleAddLifter = (lifter: LifterSearchResult) => {
     if (!selectedLifters.includes(lifter.name) && selectedLifters.length < 10) {
@@ -574,7 +567,7 @@ export function Scout() {
         <div className="flex justify-between items-center mb-4">
           <h4 className="text-white font-semibold">
             Trend Analysis - All Lifters
-            <span className="text-gray-400 text-sm ml-2">({regressionType === 'linear' ? 'Linear' : 'Logarithmic'} Regression)</span>
+            <span className="text-gray-400 text-sm ml-2">(Dampened Velocity Method)</span>
           </h4>
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-400">Highlight:</label>
@@ -604,55 +597,54 @@ export function Scout() {
             const opacity = focusedLifter === '' ? 1 : (isFocused ? 1 : 0.2);
             const strokeWidth = isFocused ? 3 : 2;
 
-            // Calculate trend line based on regression type
-            const firstCompDate = new Date(prediction.competitions[0].date);
-            const points = prediction.competitions.map(comp => ({
-              x: Math.floor((new Date(comp.date).getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24)),
-              y: comp.total_kg
-            }));
+            // Calculate trend line using Dampened Velocity Method
+            const sorted = [...prediction.competitions].sort((a, b) =>
+              new Date(a.date).getTime() - new Date(b.date).getTime()
+            );
 
-            const daysSinceFirst = (date: Date) => Math.floor((date.getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24));
+            const velocity = calculateDampenedVelocity(sorted);
+            if (!velocity) return null; // Skip if can't calculate velocity
 
-            let trendStartTotal: number;
-            let trendEndTotal: number;
+            const firstCompDate = new Date(sorted[0].date);
+            const lastCompDate = new Date(sorted[sorted.length - 1].date);
+            const lastTotal = sorted[sorted.length - 1].total_kg;
 
-            if (regressionType === 'logarithmic') {
-              const { a, b } = logarithmicRegression(points);
-              trendStartTotal = predictLogarithmicTotal(0, a, b);
-              trendEndTotal = predictLogarithmicTotal(daysSinceFirst(targetDateObj), a, b);
-            } else {
-              const { slope, intercept } = linearRegression(points);
-              trendStartTotal = intercept;
-              trendEndTotal = intercept + slope * daysSinceFirst(targetDateObj);
-            }
+            const DAYS_PER_MONTH = 30.44;
 
-            const trendStartX = dateToX(firstCompDate);
-            const trendStartY = totalToY(trendStartTotal);
-            const trendEndX = dateToX(targetDateObj);
-            const trendEndY = totalToY(trendEndTotal);
+            // Generate trend line path using velocity projection
+            const numPoints = 50;
+            const pathPoints: string[] = [];
 
-            // Generate trend line path (curve for logarithmic, line for linear)
-            let trendPath: string;
-            if (regressionType === 'logarithmic') {
-              const { a, b } = logarithmicRegression(points);
-              // Create a curved path by sampling points along the logarithmic curve
-              const numPoints = 50;
-              const endDays = daysSinceFirst(targetDateObj);
-              const pathPoints: string[] = [];
+            for (let i = 0; i <= numPoints; i++) {
+              const progress = i / numPoints;
+              const currentDate = new Date(
+                firstCompDate.getTime() +
+                (targetDateObj.getTime() - firstCompDate.getTime()) * progress
+              );
 
-              for (let i = 0; i <= numPoints; i++) {
-                const days = (endDays * i) / numPoints;
-                const total = predictLogarithmicTotal(days, a, b);
-                const date = new Date(firstCompDate.getTime() + days * 24 * 60 * 60 * 1000);
-                const x = dateToX(date);
-                const y = totalToY(total);
-                pathPoints.push(i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`);
+              let projectedTotal: number;
+
+              if (currentDate <= lastCompDate) {
+                // For historical data, use actual path (interpolated)
+                const monthsFromFirst =
+                  (currentDate.getTime() - firstCompDate.getTime()) /
+                  (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
+                const firstTotal = sorted[0].total_kg;
+                projectedTotal = firstTotal + (monthsFromFirst * velocity.vOverall);
+              } else {
+                // For future projection, use dampened velocity from last competition
+                const monthsFromLast =
+                  (currentDate.getTime() - lastCompDate.getTime()) /
+                  (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
+                projectedTotal = lastTotal + (monthsFromLast * velocity.finalVelocity);
               }
-              trendPath = pathPoints.join(' ');
-            } else {
-              // Simple line for linear regression
-              trendPath = `M ${trendStartX} ${trendStartY} L ${trendEndX} ${trendEndY}`;
+
+              const x = dateToX(currentDate);
+              const y = totalToY(projectedTotal);
+              pathPoints.push(i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`);
             }
+
+            const trendPath = pathPoints.join(' ');
 
             return (
               <g key={lifterName} opacity={opacity}>
@@ -860,7 +852,7 @@ export function Scout() {
           </div>
 
           {predictionEnabled && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Target Date */}
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Target Competition Date</label>
@@ -889,23 +881,7 @@ export function Scout() {
                   <option value={24}>Last 24 months</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Use competitions from this period for prediction
-                </p>
-              </div>
-
-              {/* Regression Type */}
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Regression Model</label>
-                <select
-                  className="input"
-                  value={regressionType}
-                  onChange={(e) => setRegressionType(e.target.value as RegressionType)}
-                >
-                  <option value="linear">Linear</option>
-                  <option value="logarithmic">Logarithmic</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Logarithmic accounts for diminishing returns
+                  Uses Dampened Velocity Method with biological friction
                 </p>
               </div>
             </div>
