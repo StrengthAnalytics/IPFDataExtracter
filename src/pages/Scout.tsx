@@ -655,9 +655,11 @@ export function Scout() {
                         )}
                         <div className="text-xs text-gray-500 mt-1">
                           {formatDate(lifter.best_total.date)}
-                          {lifter.best_total.weight_class_kg && (
+                          {lifter.best_total.weight_class_kg ? (
                             <span className="ml-1 text-gray-400">@ {lifter.best_total.weight_class_kg} kg</span>
-                          )}
+                          ) : lifter.best_total.bodyweight_kg ? (
+                            <span className="ml-1 text-gray-400">BW {lifter.best_total.bodyweight_kg} kg</span>
+                          ) : null}
                         </div>
                         <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_total.meet_name}</div>
                       </div>
@@ -738,9 +740,11 @@ export function Scout() {
                           )}
                           <div className="text-xs text-gray-500 mt-1">
                             {formatDate(lifter.best_total.date)}
-                            {lifter.best_total.weight_class_kg && (
+                            {lifter.best_total.weight_class_kg ? (
                               <span className="ml-1 text-gray-400">@ {lifter.best_total.weight_class_kg} kg</span>
-                            )}
+                            ) : lifter.best_total.bodyweight_kg ? (
+                              <span className="ml-1 text-gray-400">BW {lifter.best_total.bodyweight_kg} kg</span>
+                            ) : null}
                           </div>
                           <div className="text-xs text-gray-600 truncate">{lifter.best_total.meet_name}</div>
                         </div>
