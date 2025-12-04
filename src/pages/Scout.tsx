@@ -9,35 +9,124 @@ type ViewMode = 'list' | 'tiles';
 type AggregationMode = 'byLift' | 'byComp';
 type RankingMethod = 'total' | 'ipfgl';
 
+// SessionStorage keys
+const STORAGE_KEYS = {
+  SELECTED_LIFTERS: 'scout_selected_lifters',
+  START_DATE: 'scout_start_date',
+  END_DATE: 'scout_end_date',
+  WEIGHT_CLASS: 'scout_weight_class',
+  AGGREGATION_MODE: 'scout_aggregation_mode',
+  RANKING_METHOD: 'scout_ranking_method',
+  VIEW_MODE: 'scout_view_mode',
+  SORT_COLUMN: 'scout_sort_column',
+  SORT_DIRECTION: 'scout_sort_direction',
+};
+
+// Helper functions for sessionStorage
+const getStorageItem = <T,>(key: string, defaultValue: T): T => {
+  try {
+    const item = sessionStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
+const setStorageItem = <T,>(key: string, value: T): void => {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.error('Error saving to sessionStorage:', error);
+  }
+};
+
 export function Scout() {
-  const [selectedLifters, setSelectedLifters] = useState<string[]>([]);
+  // Load persisted state from sessionStorage
+  const [selectedLifters, setSelectedLifters] = useState<string[]>(() =>
+    getStorageItem(STORAGE_KEYS.SELECTED_LIFTERS, [])
+  );
   const [comparisonData, setComparisonData] = useState<BestLifts[] | null>(null);
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [weightClass, setWeightClass] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>(() =>
+    getStorageItem(STORAGE_KEYS.START_DATE, '')
+  );
+  const [endDate, setEndDate] = useState<string>(() =>
+    getStorageItem(STORAGE_KEYS.END_DATE, '')
+  );
+  const [weightClass, setWeightClass] = useState<string>(() =>
+    getStorageItem(STORAGE_KEYS.WEIGHT_CLASS, '')
+  );
   const [weightClasses, setWeightClasses] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [sortColumn, setSortColumn] = useState<SortColumn>('total');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [sortColumn, setSortColumn] = useState<SortColumn>(() =>
+    getStorageItem(STORAGE_KEYS.SORT_COLUMN, 'total')
+  );
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() =>
+    getStorageItem(STORAGE_KEYS.SORT_DIRECTION, 'desc')
+  );
   const [useFuzzySearch, setUseFuzzySearch] = useState(false);
   const [showFuzzyInfo, setShowFuzzyInfo] = useState(false);
-  const [aggregationMode, setAggregationMode] = useState<AggregationMode>('byLift');
-  const [rankingMethod, setRankingMethod] = useState<RankingMethod>('total');
+  const [aggregationMode, setAggregationMode] = useState<AggregationMode>(() =>
+    getStorageItem(STORAGE_KEYS.AGGREGATION_MODE, 'byLift')
+  );
+  const [rankingMethod, setRankingMethod] = useState<RankingMethod>(() =>
+    getStorageItem(STORAGE_KEYS.RANKING_METHOD, 'total')
+  );
 
-  // Set responsive default: tiles for mobile, list for desktop
+  // Set responsive default: tiles for mobile, list for desktop (with persistence)
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = getStorageItem<ViewMode | null>(STORAGE_KEYS.VIEW_MODE, null);
+    if (saved) return saved;
     return window.innerWidth < 768 ? 'tiles' : 'list';
   });
 
-  // Initialize date defaults (last 3 years to current)
+  // Initialize date defaults (last 3 years to current) - only if not already set
   useEffect(() => {
-    const now = new Date();
-    const threeYearsAgo = new Date();
-    threeYearsAgo.setFullYear(now.getFullYear() - 3);
+    if (!startDate || !endDate) {
+      const now = new Date();
+      const threeYearsAgo = new Date();
+      threeYearsAgo.setFullYear(now.getFullYear() - 3);
 
-    setEndDate(now.toISOString().split('T')[0]);
-    setStartDate(threeYearsAgo.toISOString().split('T')[0]);
+      if (!endDate) setEndDate(now.toISOString().split('T')[0]);
+      if (!startDate) setStartDate(threeYearsAgo.toISOString().split('T')[0]);
+    }
   }, []);
+
+  // Persist state to sessionStorage
+  useEffect(() => {
+    setStorageItem(STORAGE_KEYS.SELECTED_LIFTERS, selectedLifters);
+  }, [selectedLifters]);
+
+  useEffect(() => {
+    setStorageItem(STORAGE_KEYS.START_DATE, startDate);
+  }, [startDate]);
+
+  useEffect(() => {
+    setStorageItem(STORAGE_KEYS.END_DATE, endDate);
+  }, [endDate]);
+
+  useEffect(() => {
+    setStorageItem(STORAGE_KEYS.WEIGHT_CLASS, weightClass);
+  }, [weightClass]);
+
+  useEffect(() => {
+    setStorageItem(STORAGE_KEYS.AGGREGATION_MODE, aggregationMode);
+  }, [aggregationMode]);
+
+  useEffect(() => {
+    setStorageItem(STORAGE_KEYS.RANKING_METHOD, rankingMethod);
+  }, [rankingMethod]);
+
+  useEffect(() => {
+    setStorageItem(STORAGE_KEYS.VIEW_MODE, viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    setStorageItem(STORAGE_KEYS.SORT_COLUMN, sortColumn);
+  }, [sortColumn]);
+
+  useEffect(() => {
+    setStorageItem(STORAGE_KEYS.SORT_DIRECTION, sortDirection);
+  }, [sortDirection]);
 
   // Load weight classes
   useEffect(() => {
@@ -88,6 +177,26 @@ export function Scout() {
 
   const handleRemoveLifter = (name: string) => {
     setSelectedLifters(selectedLifters.filter(n => n !== name));
+  };
+
+  const handleClearSelection = () => {
+    // Clear state
+    setSelectedLifters([]);
+    setComparisonData(null);
+
+    // Clear sessionStorage for selection and filters
+    sessionStorage.removeItem(STORAGE_KEYS.SELECTED_LIFTERS);
+    sessionStorage.removeItem(STORAGE_KEYS.WEIGHT_CLASS);
+    sessionStorage.removeItem(STORAGE_KEYS.START_DATE);
+    sessionStorage.removeItem(STORAGE_KEYS.END_DATE);
+
+    // Reset filters to defaults
+    setWeightClass('');
+    const now = new Date();
+    const threeYearsAgo = new Date();
+    threeYearsAgo.setFullYear(now.getFullYear() - 3);
+    setEndDate(now.toISOString().split('T')[0]);
+    setStartDate(threeYearsAgo.toISOString().split('T')[0]);
   };
 
   const formatWeight = (kg?: number) => kg ? `${kg} kg` : '-';
@@ -302,12 +411,20 @@ export function Scout() {
             <h2 className="text-lg font-semibold text-white">
               Selected Lifters ({selectedLifters.length})
             </h2>
-            {isLoading && (
-              <div className="flex items-center gap-2 text-gray-400">
-                <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
-                <span>Updating...</span>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              {isLoading && (
+                <div className="flex items-center gap-2 text-gray-400">
+                  <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
+                  <span>Updating...</span>
+                </div>
+              )}
+              <button
+                onClick={handleClearSelection}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Clear Selection
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {selectedLifters.map((name) => (
@@ -536,7 +653,14 @@ export function Scout() {
                             <div className="text-xs text-gray-500">{formatWeight(lifter.best_total.total_kg)}</div>
                           </>
                         )}
-                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_total.date)}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {formatDate(lifter.best_total.date)}
+                          {lifter.best_total.weight_class_kg ? (
+                            <span className="ml-1 text-gray-400">@ {lifter.best_total.weight_class_kg} kg</span>
+                          ) : lifter.best_total.bodyweight_kg ? (
+                            <span className="ml-1 text-gray-400">BW {lifter.best_total.bodyweight_kg} kg</span>
+                          ) : null}
+                        </div>
                         <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_total.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
@@ -614,7 +738,14 @@ export function Scout() {
                               <div className="text-xs text-gray-500">{formatWeight(lifter.best_total.total_kg)}</div>
                             </>
                           )}
-                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_total.date)}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {formatDate(lifter.best_total.date)}
+                            {lifter.best_total.weight_class_kg ? (
+                              <span className="ml-1 text-gray-400">@ {lifter.best_total.weight_class_kg} kg</span>
+                            ) : lifter.best_total.bodyweight_kg ? (
+                              <span className="ml-1 text-gray-400">BW {lifter.best_total.bodyweight_kg} kg</span>
+                            ) : null}
+                          </div>
                           <div className="text-xs text-gray-600 truncate">{lifter.best_total.meet_name}</div>
                         </div>
                       ) : <span className="text-gray-600">-</span>}
