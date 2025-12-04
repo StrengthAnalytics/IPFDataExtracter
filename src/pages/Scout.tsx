@@ -714,20 +714,21 @@ export function Scout() {
                   <span className="text-gray-400 text-sm ml-2">• {weightClass} kg class</span>
                 )}
               </h2>
-              <div className="relative">
+              <div className="relative"
+                onMouseLeave={() => setShowComparisonInfo(false)}
+              >
                 <button
                   onMouseEnter={() => setShowComparisonInfo(true)}
-                  onMouseLeave={() => setShowComparisonInfo(false)}
                   className="w-5 h-5 rounded-full bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center text-xs font-bold transition-colors"
                 >
                   i
                 </button>
                 {showComparisonInfo && (
                   <>
-                    {/* Backdrop to catch mouse leave */}
+                    {/* Backdrop for mobile */}
                     <div
-                      className="fixed inset-0 z-40"
-                      onMouseEnter={() => setShowComparisonInfo(false)}
+                      className="fixed inset-0 z-40 sm:hidden"
+                      onClick={() => setShowComparisonInfo(false)}
                     />
                     {/* Centered popover */}
                     <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 max-w-[90vw] bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-4 text-xs text-gray-300 z-50">
