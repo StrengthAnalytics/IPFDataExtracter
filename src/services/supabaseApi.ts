@@ -10,7 +10,8 @@ import type {
   Competition,
   StrengthStandards,
   ComparisonData,
-  LiftAttempts
+  LiftAttempts,
+  CompetitionHistoryItem
 } from '../types';
 
 class APIError extends Error {
@@ -503,6 +504,50 @@ export const api = {
     const equipmentTypes = [...new Set((data || []).map((r: any) => r.equipment))].sort();
 
     return { equipment_types: equipmentTypes };
+  },
+
+  /**
+   * Get competition history for a lifter
+   * Used for prediction analysis
+   */
+  async getLifterHistory(
+    name: string,
+    monthsBack: number,
+    weightClass?: string,
+    equipment?: string
+  ): Promise<CompetitionHistoryItem[]> {
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - monthsBack);
+    const startDateStr = startDate.toISOString().split('T')[0];
+
+    let query = supabase
+      .from('lifter_records')
+      .select('date, total_kg, meet_name, equipment, weight_class_kg')
+      .eq('name', name)
+      .not('total_kg', 'is', null)
+      .gt('total_kg', 0)
+      .gte('date', startDateStr)
+      .order('date', { ascending: true });
+
+    if (weightClass) {
+      query = query.eq('weight_class_kg', weightClass);
+    }
+
+    if (equipment) {
+      query = query.eq('equipment', equipment);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw new APIError(500, error.message);
+
+    return (data || []).map((record: any) => ({
+      date: record.date,
+      total_kg: record.total_kg,
+      meet_name: record.meet_name,
+      equipment: record.equipment,
+      weight_class_kg: record.weight_class_kg
+    }));
   },
 
   /**
