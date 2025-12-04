@@ -18,6 +18,39 @@ interface VelocityBreakdown {
   finalVelocity: number;   // After 0.9 friction
 }
 
+// Monotonic Filter: Remove strategic underperformances and bad meets
+// Keeps only competitions where total >= previous best
+function applyMonotonicFilter(
+  competitions: CompetitionHistoryItem[]
+): CompetitionHistoryItem[] {
+  if (competitions.length < 2) return competitions;
+
+  // Sort by date (oldest first)
+  const sorted = [...competitions].sort((a, b) =>
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const cleanHistory: CompetitionHistoryItem[] = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const current = sorted[i];
+    const lastClean = cleanHistory[cleanHistory.length - 1];
+
+    // Only keep if total is >= last clean total (monotonically increasing)
+    if (current.total_kg >= lastClean.total_kg) {
+      cleanHistory.push(current);
+    }
+  }
+
+  // Exception: If filtering leaves < 2 points, revert to original
+  // (we need at least 2 points to calculate velocity)
+  if (cleanHistory.length < 2) {
+    return sorted;
+  }
+
+  return cleanHistory;
+}
+
 // Dampened Velocity Method for powerlifting predictions
 // Respects current momentum with biological friction to prevent unrealistic projections
 function calculateDampenedVelocity(
@@ -26,17 +59,15 @@ function calculateDampenedVelocity(
   // Need at least 2 data points
   if (competitions.length < 2) return null;
 
-  // Sort by date (oldest first)
-  const sorted = [...competitions].sort((a, b) =>
-    new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
+  // Step 1: Apply Monotonic Filter to remove bad meets/strategic underperformances
+  const cleanHistory = applyMonotonicFilter(competitions);
 
   const DAYS_PER_MONTH = 30.44;
 
-  // Get key data points
-  const first = sorted[0];
-  const secondToLast = sorted[sorted.length - 2];
-  const last = sorted[sorted.length - 1];
+  // Get key data points from cleaned data
+  const first = cleanHistory[0];
+  const secondToLast = cleanHistory[cleanHistory.length - 2];
+  const last = cleanHistory[cleanHistory.length - 1];
 
   // Calculate time deltas in months
   const monthsBetweenLastTwo =

@@ -2,14 +2,40 @@
 
 const DAYS_PER_MONTH = 30.44;
 
+// Monotonic Filter: Remove strategic underperformances and bad meets
+function applyMonotonicFilter(competitions) {
+  if (competitions.length < 2) return competitions;
+
+  const sorted = [...competitions].sort((a, b) => a.date - b.date);
+  const cleanHistory = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const current = sorted[i];
+    const lastClean = cleanHistory[cleanHistory.length - 1];
+
+    // Only keep if total >= last clean total
+    if (current.total >= lastClean.total) {
+      cleanHistory.push(current);
+    }
+  }
+
+  // Exception: If filtering leaves < 2 points, revert to original
+  if (cleanHistory.length < 2) {
+    return sorted;
+  }
+
+  return cleanHistory;
+}
+
 function calculateDampenedVelocity(competitions) {
   if (competitions.length < 2) return null;
 
-  const sorted = [...competitions].sort((a, b) => a.date - b.date);
+  // Apply monotonic filter first
+  const cleanHistory = applyMonotonicFilter(competitions);
 
-  const first = sorted[0];
-  const secondToLast = sorted[sorted.length - 2];
-  const last = sorted[sorted.length - 1];
+  const first = cleanHistory[0];
+  const secondToLast = cleanHistory[cleanHistory.length - 2];
+  const last = cleanHistory[cleanHistory.length - 1];
 
   const monthsBetweenLastTwo =
     (last.date - secondToLast.date) / (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
@@ -163,5 +189,43 @@ console.log(`  Predicted Total: ${resultLifterA.predictedTotal} kg`);
 console.log(`  Expected: 570-575 kg`);
 console.log(`  Match: ${resultLifterA.predictedTotal >= 570 && resultLifterA.predictedTotal <= 580 ? '✓' : '✗'}`);
 console.log(`  Without capping would be: ~612 kg (unrealistic!)`);
+
+console.log('\n========================================');
+console.log('BAD MEET TEST: Strategic Underperformance');
+console.log('========================================');
+
+const badMeetData = [
+  { date: new Date('2024-01-15'), total: 500 },
+  { date: new Date('2024-03-15'), total: 510 },
+  { date: new Date('2024-06-15'), total: 495 },  // Bad meet/Qualifier - should be filtered
+  { date: new Date('2024-09-15'), total: 520 }
+];
+
+const targetBadMeet = new Date('2024-12-15');
+const resultBadMeet = predictTotal(badMeetData, targetBadMeet);
+
+// Calculate what the filtered data looks like
+const filtered = applyMonotonicFilter(badMeetData);
+
+console.log('Historical Data:');
+console.log('  Jan 2024: 500 kg');
+console.log('  Mar 2024: 510 kg');
+console.log('  Jun 2024: 495 kg (BAD MEET - should be filtered)');
+console.log('  Sep 2024: 520 kg');
+console.log('\nMonotonic Filter Results:');
+console.log(`  Original competitions: ${badMeetData.length}`);
+console.log(`  Filtered competitions: ${filtered.length}`);
+console.log(`  Filtered out: ${badMeetData.length - filtered.length} meet(s)`);
+console.log('  Clean progression:', filtered.map(c => `${c.total}kg`).join(' → '));
+console.log('\nVelocity Breakdown:');
+console.log(`  V_recent (raw): ${resultBadMeet.velocity.vRecent.toFixed(2)} kg/month`);
+console.log(`  V_recent (capped): ${resultBadMeet.velocity.vRecentClamped.toFixed(2)} kg/month`);
+console.log(`  V_overall: ${resultBadMeet.velocity.vOverall.toFixed(2)} kg/month`);
+console.log(`  V_weighted (60/40): ${resultBadMeet.velocity.vWeighted.toFixed(2)} kg/month`);
+console.log(`  Final Velocity (with 0.9 friction): ${resultBadMeet.velocity.finalVelocity.toFixed(2)} kg/month`);
+console.log('\nPrediction for Dec 2024 (3 months from last comp):');
+console.log(`  Predicted Total: ${resultBadMeet.predictedTotal} kg`);
+console.log(`  Expected: Smooth prediction ignoring the 495kg dip`);
+console.log(`  Note: Without filtering, V_recent would show 495→520 = huge jump (false volatility)`);
 
 console.log('\n========================================');
