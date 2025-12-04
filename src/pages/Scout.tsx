@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
 import { api } from '../services/api';
 import type { LifterSearchResult, BestLifts, PredictionAnalysis, CompetitionHistoryItem } from '../types';
@@ -273,10 +272,9 @@ export function Scout() {
   // Prediction feature state - always enabled
   const [predictionEnabled] = useState(true);
   const [targetDate, setTargetDate] = useState<string>(() => {
-    // Default to 6 months from now
-    const sixMonthsOut = new Date();
-    sixMonthsOut.setMonth(sixMonthsOut.getMonth() + 6);
-    return sixMonthsOut.toISOString().split('T')[0];
+    // Default to today
+    const today = new Date();
+    return today.toISOString().split('T')[0];
   });
   const [trendRange, setTrendRange] = useState<TrendRange>(18);
   const [predictions, setPredictions] = useState<Map<string, PredictionAnalysis>>(new Map());
@@ -758,8 +756,9 @@ export function Scout() {
               </div>
             </div>
 
-            {/* Toggle Controls - Mobile Optimized Grid */}
-            <div className="grid grid-cols-3 gap-2">
+            {/* Toggle Controls - Responsive Layout */}
+            {/* Mobile: Grid Layout */}
+            <div className="sm:hidden grid grid-cols-3 gap-2">
               {/* Aggregation Mode Toggle */}
               <div className="flex flex-col gap-1.5">
                 <span className="text-xs text-gray-400 text-center">Data</span>
@@ -841,6 +840,90 @@ export function Scout() {
                 </div>
               </div>
             </div>
+
+            {/* Desktop: Inline Layout */}
+            <div className="hidden sm:flex sm:flex-wrap gap-3 sm:gap-4 justify-center">
+              {/* Aggregation Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">Data:</span>
+                <div className="inline-flex rounded-lg bg-gray-800 p-1">
+                  <button
+                    onClick={() => setAggregationMode('byLift')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      aggregationMode === 'byLift'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    By Lift
+                  </button>
+                  <button
+                    onClick={() => setAggregationMode('byComp')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      aggregationMode === 'byComp'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    By Comp
+                  </button>
+                </div>
+              </div>
+
+              {/* Ranking Method Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">Rank by:</span>
+                <div className="inline-flex rounded-lg bg-gray-800 p-1">
+                  <button
+                    onClick={() => setRankingMethod('total')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      rankingMethod === 'total'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Total
+                  </button>
+                  <button
+                    onClick={() => setRankingMethod('ipfgl')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      rankingMethod === 'ipfgl'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    IPF GL
+                  </button>
+                </div>
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400">View:</span>
+                <div className="inline-flex rounded-lg bg-gray-800 p-1">
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    List
+                  </button>
+                  <button
+                    onClick={() => setViewMode('tiles')}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      viewMode === 'tiles'
+                        ? 'bg-primary-600 text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Tiles
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* List View */}
@@ -891,14 +974,14 @@ export function Scout() {
               {getSortedData().map((lifter) => (
                 <tr key={lifter.name} className="border-b border-gray-800 hover:bg-gray-800/50">
                   <td className="py-2 px-2">
-                    <Link
-                      to={`/lifter/${encodeURIComponent(lifter.name)}`}
+                    <a
+                      href={`/lifter/${encodeURIComponent(lifter.name)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-semibold text-white hover:text-primary-500 transition-colors"
                     >
                       {lifter.name}
-                    </Link>
+                    </a>
                     <div className="text-xs text-gray-500">Meets: {lifter.total_competitions}</div>
                   </td>
                   <td className="py-2 px-2">
@@ -977,14 +1060,14 @@ export function Scout() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {getSortedData().map((lifter) => (
                 <div key={lifter.name} className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-primary-500 transition-colors">
-                  <Link
-                    to={`/lifter/${encodeURIComponent(lifter.name)}`}
+                  <a
+                    href={`/lifter/${encodeURIComponent(lifter.name)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-lg font-bold text-white hover:text-primary-500 transition-colors block"
                   >
                     {lifter.name}
-                  </Link>
+                  </a>
                   <div className="text-xs text-gray-500 mb-3">Meets: {lifter.total_competitions}</div>
 
                   <div className="space-y-3">
