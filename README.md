@@ -13,26 +13,28 @@ Fast, fuzzy search across 40,000+ powerlifters with autocomplete. Search by name
 Compare up to 10 lifters side-by-side with powerful analytics:
 
 **Data Aggregation Modes:**
-- **By Lift**: Cherry-pick best result for each lift across all competitions (default)
-- **By Comp**: View all lifts from the competition with best total or IPF GL score
+- **By Lift**: Cherry-pick best result for each lift across all competitions
+- **By Comp**: View all lifts from the competition with best total or IPF GL score (default)
 
 **Ranking Methods:**
-- **Total**: Rank by total weight lifted
+- **Total**: Rank by total weight lifted (default)
 - **IPF GL**: Rank by IPF Goodlift points for weight-class normalized comparison
 
 **View Modes:**
-- **List View**: Sortable table (default for desktop)
-- **Tiles View**: Card-based grid layout (default for mobile)
+- **List View**: Sortable table with detailed attempt breakdowns (default for desktop)
+- **Tiles View**: Compact card layout with side-by-side totals and predictions (default for mobile)
 
 **Detailed Analysis:**
-- All 3 attempts for each lift displayed
+- All 3 attempts for each lift displayed in both views
 - Failed attempts shown with strikethrough
 - Competition date and meet name for context
-- Customizable date ranges
-- Filter by equipment type and weight class
+- Number of meets shown directly under lifter name
+- Clickable lifter names that open profile pages in new tabs
+- Filter by weight class
+- Predictions always enabled by default
 
 ### 📊 Performance Prediction (Dampened Velocity Method)
-Predict future competition totals using a custom algorithm designed specifically for powerlifting:
+Predict future competition totals using a custom algorithm designed specifically for powerlifting. **Predictions are always enabled** and calculated automatically for all lifters with sufficient competition history.
 
 **The Algorithm:**
 Our prediction system uses the **Dampened Velocity Method**, which respects current momentum while applying biological friction to prevent unrealistic projections. Unlike traditional regression models that often overpredict for experienced lifters, this method accounts for the natural plateau effect in strength sports.
@@ -70,6 +72,11 @@ Our prediction system uses the **Dampened Velocity Method**, which respects curr
    - `Predicted_total = Last_total + (Months_to_target × Final_velocity)`
    - Rounded to nearest 2.5 kg (standard plate increment)
 
+**Configuration:**
+- **Target Comp Date**: Defaults to today, customizable for future planning
+- **Trend Analysis Range**: Analyze last 12, 18, or 24 months (default: 18)
+- Results automatically sorted by predicted total (highest first)
+
 **Why This Works:**
 - **Respects Reality**: Accounts for biological adaptation and plateau effects
 - **Handles Outliers**: Capping prevents breakout performances from skewing predictions
@@ -81,7 +88,7 @@ Our prediction system uses the **Dampened Velocity Method**, which respects curr
 - Plan for upcoming competitions 3-12 months out
 - Set realistic training goals based on historical progression
 - Compare multiple lifters' projected performance at the same date
-- Visualize trend lines and predicted totals on interactive charts
+- Scout upcoming competitors at specific competition dates
 
 ### 🎯 Strength Standards
 Discover benchmarks for your weight class:
@@ -540,18 +547,24 @@ For issues, questions, or feature requests:
 
 ## Recent Updates
 
-**Latest Features (2025):**
-- ✅ **Dampened Velocity Method** for performance predictions with biological friction
-- ✅ **Monotonic Filter** to remove bad meets and strategic underperformances
-- ✅ **Velocity Capping** to prevent breakout performances from skewing predictions
-- ✅ **Interactive Trend Charts** showing historical progression and future projections
+**Latest Features (December 2024):**
+- ✅ **Scout UI Cleanup** - Streamlined comparison interface with centralized controls
+- ✅ **Always-On Predictions** - Automatic performance forecasting for all comparisons
+- ✅ **Enhanced Tiles View** - Side-by-side total and prediction display with full attempt data
+- ✅ **Responsive Toggle Controls** - Grid layout on mobile, centered inline on desktop
+- ✅ **Clickable Lifter Names** - Direct links to profile pages that open in new tabs
+- ✅ **Vercel SPA Routing** - Fixed 404 errors with proper client-side routing configuration
+- ✅ **Centered UI Layout** - Improved visual hierarchy with max-width constraints
+- ✅ **Dampened Velocity Method** - Performance predictions with biological friction
+- ✅ **Monotonic Filter** - Removes bad meets and strategic underperformances
+- ✅ **Velocity Capping** - Prevents breakout performances from skewing predictions
 - ✅ IPF GL (Goodlift Points) ranking system
-- ✅ Dual aggregation modes (By Lift / By Comp)
+- ✅ Dual aggregation modes (By Lift / By Comp, defaults to By Comp)
 - ✅ Responsive view modes (List / Tiles)
-- ✅ Complete attempt details with success/fail indicators
-- ✅ Advanced sorting with ranking method awareness
+- ✅ Complete attempt details with success/fail indicators in both views
+- ✅ Advanced sorting with prediction-first default ordering
 - ✅ Fuzzy search with typo tolerance
-- ✅ Mobile-optimized interface
+- ✅ Mobile-optimized interface with responsive controls
 
 ## Roadmap
 

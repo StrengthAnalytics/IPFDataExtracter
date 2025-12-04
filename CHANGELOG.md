@@ -4,6 +4,80 @@ All notable features and improvements to IPF Data Extracter.
 
 > **Note**: When adding new features, update this file with implementation details to help future development.
 
+## [1.1.0] - December 2024
+
+### 🎨 Scout UI Cleanup & Enhancement
+
+Major redesign of the Scout page for improved usability and mobile experience.
+
+**Files Modified:**
+- `src/pages/Scout.tsx` - Complete UI restructure
+- `vercel.json` - Added SPA routing configuration
+
+**Breaking Changes:**
+- Predictions now always enabled (toggle removed)
+- Default aggregation mode changed from "By Lift" to "By Comp"
+- Default sort changed from "Total" to "Prediction" (descending)
+- Date range filters replaced with Target Comp Date + Trend Analysis Range
+
+**New Features:**
+1. **Centralized Search Box**
+   - Max-width 2xl container (matches homepage styling)
+   - All search and filters in single, clean interface
+   - Centered page heading above search box
+
+2. **Always-On Predictions**
+   - Removed prediction enable/disable toggle
+   - Predictions calculated automatically for all lifters
+   - Default target date set to today
+   - Configurable trend analysis range (12/18/24 months)
+
+3. **Enhanced Tiles View**
+   - Total and Predicted totals side-by-side (50/50 split)
+   - Full attempt data for all lifts (S/B/D)
+   - Competition details with line-clamp for long names
+   - Better mobile space utilization
+
+4. **Clickable Lifter Names**
+   - Both list and tiles views support profile links
+   - Opens in new tab with `target="_blank"`
+   - Fixed 404 errors with `vercel.json` SPA routing config
+
+5. **Responsive Toggle Controls**
+   - Mobile: 3-column grid layout with labels above buttons
+   - Desktop: Inline layout with centered alignment
+   - Shortened labels on mobile (Lift/Comp, Total/GL, List/Tiles)
+   - Full labels on desktop (By Lift/By Comp, Total/IPF GL, List/Tiles)
+
+6. **Improved Info Popover**
+   - Moved from inline to next to "Comparison Results" heading
+   - Centered on screen (no horizontal scroll needed)
+   - Explains all 3 comparison options in one place
+   - Fixed flicker issue on desktop hover
+   - Mobile-optimized with backdrop dismiss
+
+7. **UI Layout Improvements**
+   - Meets count moved from dedicated column to under lifter name
+   - Simplified column structure (removed Meets column)
+   - Better use of vertical space
+   - Consistent max-width containers throughout
+
+**Technical Improvements:**
+- Added `vercel.json` with SPA rewrite rules
+- Fixed routing for new tab navigation
+- Improved hover interactions for popover
+- Better responsive breakpoints for mobile/desktop
+- Removed unused chart visualization code
+
+**User Experience:**
+- Cleaner, more focused interface
+- Better mobile usability
+- Predictions always available by default
+- More intuitive date configuration
+- Faster access to lifter profiles
+
+---
+
 ## [1.0.0] - December 2024
 
 ### 🎯 Initial Release
@@ -68,28 +142,51 @@ const { data, error } = await supabase.rpc('search_lifters_by_similarity', {
 ### 🏋️ Scout Page (Multi-Lifter Comparison)
 **File:** `src/pages/Scout.tsx`
 
+**Latest Version (v1.1.0):**
 - Compare up to 10 lifters side-by-side
-- Dynamic filtering (auto-updates on change):
+- **Centralized search box** (max-w-2xl) matching homepage styling
+- **Predictions always enabled** - automatic velocity-based forecasting
+- **Dynamic filtering** (auto-updates on change):
   - Weight class filter
-  - Date range (separate start/end dates)
-- Sortable columns (all lifts and metrics):
-  - Name, Squat, Bench, Deadlift, Total, Meets
+  - Target Comp Date (defaults to today)
+  - Trend Analysis Range (12/18/24 months, default 18)
+- **Responsive toggle controls**:
+  - Mobile: 3-column grid with labels above
+  - Desktop: Inline layout, centered
+  - Data (By Lift / By Comp), Rank by (Total / IPF GL), View (List / Tiles)
+- **Sortable columns** in list view:
+  - Name, Squat, Bench, Deadlift, Total, Prediction
   - Click to sort, click again to reverse
   - Visual indicators (↑/↓ arrows)
+  - **Default**: Sort by Prediction descending
+- **Enhanced views**:
+  - List: Full attempt data, clickable names, meets under name
+  - Tiles: Side-by-side total/prediction, all attempts, compact layout
+- **Clickable lifter names** open profile pages in new tabs
 - Real-time comparison updates via useEffect
 - Loading states during data fetch
-- Responsive grid layout
+- Comprehensive info popover explaining all options
 
 **API:**
-- `compareLifters(lifters[], startDate?, endDate?, equipment?, weightClass?)`
+- `compareLifters(lifters[], startDate?, endDate?, equipment?, weightClass?, aggregationMode, rankingMethod)`
+- `getLifterHistory(name, trendRange, weightClass?, equipment?)` for predictions
 - Parallel queries for each lifter
-- Date range filtering
 - Weight class filtering
+- Automatic prediction calculation
 
 **Implementation Notes:**
-- Uses `useEffect` with dependencies: `[selectedLifters, startDate, endDate, weightClass]`
+- Uses `useEffect` with dependencies: `[selectedLifters, startDate, endDate, weightClass, aggregationMode, rankingMethod]`
+- Separate `useEffect` for predictions: `[predictionEnabled, selectedLifters, targetDate, trendRange, weightClass]`
 - No "Compare" button needed - updates automatically
-- Shows "Updating..." spinner during fetch
+- Shows "Updating..." and "Calculating predictions..." spinners
+
+**Defaults (v1.1.0):**
+- Aggregation: By Comp
+- Ranking: Total
+- Sort: Prediction (descending)
+- View: List (desktop) / Tiles (mobile)
+- Target Date: Today
+- Trend Range: 18 months
 
 **Future Enhancements:**
 - [ ] Equipment type filtering
@@ -98,7 +195,8 @@ const { data, error } = await supabase.rpc('search_lifters_by_similarity', {
 - [ ] Export to CSV/PDF
 - [ ] Share comparison links
 - [ ] Wilks/DOTS score comparison
-- [ ] Performance graphs
+- [ ] Confidence intervals for predictions
+- [ ] Individual lift predictions (S/B/D separately)
 
 ---
 

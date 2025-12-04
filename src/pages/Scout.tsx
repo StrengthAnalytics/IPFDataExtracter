@@ -548,9 +548,9 @@ export function Scout() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Scout Lifters</h1>
-        <p className="text-gray-400">Compare multiple lifters head-to-head</p>
+      <div className="max-w-2xl mx-auto mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2 text-center">Scout Lifters</h1>
+        <p className="text-gray-400 text-center">Compare multiple lifters head-to-head</p>
       </div>
 
       {/* Search and Filters - Centralized */}
