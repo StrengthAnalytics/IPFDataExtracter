@@ -254,6 +254,7 @@ export function Scout() {
   );
   const [useFuzzySearch, setUseFuzzySearch] = useState(false);
   const [showFuzzyInfo, setShowFuzzyInfo] = useState(false);
+  const [showComparisonInfo, setShowComparisonInfo] = useState(false);
   const [aggregationMode, setAggregationMode] = useState<AggregationMode>(() =>
     getStorageItem(STORAGE_KEYS.AGGREGATION_MODE, 'byComp')
   );
@@ -707,60 +708,83 @@ export function Scout() {
       {comparisonData && comparisonData.length > 0 && (
         <div className="card">
           <div className="mb-4">
-            <h2 className="text-lg font-semibold text-white mb-3">
-              Comparison Results
-              {weightClass && (
-                <span className="text-gray-400 text-sm ml-2">• {weightClass} kg class</span>
-              )}
-            </h2>
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-lg font-semibold text-white">
+                Comparison Results
+                {weightClass && (
+                  <span className="text-gray-400 text-sm ml-2">• {weightClass} kg class</span>
+                )}
+              </h2>
+              <div className="relative">
+                <button
+                  onMouseEnter={() => setShowComparisonInfo(true)}
+                  onMouseLeave={() => setShowComparisonInfo(false)}
+                  className="w-5 h-5 rounded-full bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center text-xs font-bold transition-colors"
+                >
+                  i
+                </button>
+                {showComparisonInfo && (
+                  <div className="absolute left-0 top-6 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-4 text-xs text-gray-300 z-50">
+                    <p className="font-semibold text-white mb-3">Comparison Options:</p>
 
-            {/* Toggle Controls */}
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <div className="mb-3">
+                      <p className="font-semibold text-white mb-1">Data:</p>
+                      <p className="mb-1 text-gray-400"><span className="text-white">By Lift:</span> Best result for each lift across all competitions (cherry-picked).</p>
+                      <p className="text-gray-400"><span className="text-white">By Comp:</span> All lifts from the competition with the best total.</p>
+                    </div>
+
+                    <div className="mb-3">
+                      <p className="font-semibold text-white mb-1">Rank by:</p>
+                      <p className="mb-1 text-gray-400"><span className="text-white">Total:</span> Sort lifters by raw kilogram total.</p>
+                      <p className="text-gray-400"><span className="text-white">IPF GL:</span> Sort by IPF Goodlift points (bodyweight-adjusted).</p>
+                    </div>
+
+                    <div>
+                      <p className="font-semibold text-white mb-1">View:</p>
+                      <p className="mb-1 text-gray-400"><span className="text-white">List:</span> Detailed table view with all attempts.</p>
+                      <p className="text-gray-400"><span className="text-white">Tiles:</span> Compact card layout (mobile-friendly).</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Toggle Controls - Mobile Optimized Grid */}
+            <div className="grid grid-cols-3 gap-2">
               {/* Aggregation Mode Toggle */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-400">Data:</span>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs text-gray-400 text-center">Data</span>
                 <div className="inline-flex rounded-lg bg-gray-800 p-1">
                   <button
                     onClick={() => setAggregationMode('byLift')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-2 py-1.5 text-xs font-medium rounded-md transition-colors flex-1 ${
                       aggregationMode === 'byLift'
                         ? 'bg-primary-600 text-white'
                         : 'text-gray-400 hover:text-white'
                     }`}
                   >
-                    By Lift
+                    Lift
                   </button>
                   <button
                     onClick={() => setAggregationMode('byComp')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-2 py-1.5 text-xs font-medium rounded-md transition-colors flex-1 ${
                       aggregationMode === 'byComp'
                         ? 'bg-primary-600 text-white'
                         : 'text-gray-400 hover:text-white'
                     }`}
                   >
-                    By Comp
+                    Comp
                   </button>
-                </div>
-                <div className="relative group">
-                  <button className="w-5 h-5 rounded-full bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center text-xs font-bold transition-colors">
-                    i
-                  </button>
-                  <div className="absolute left-0 top-6 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-3 text-xs text-gray-300 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                    <p className="font-semibold text-white mb-1">By Lift:</p>
-                    <p className="mb-2 text-gray-400">Best result for each lift across all competitions (cherry-picked).</p>
-                    <p className="font-semibold text-white mb-1">By Comp:</p>
-                    <p className="text-gray-400">All lifts from the competition with the best total.</p>
-                  </div>
                 </div>
               </div>
 
               {/* Ranking Method Toggle */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-400">Rank by:</span>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs text-gray-400 text-center">Rank by</span>
                 <div className="inline-flex rounded-lg bg-gray-800 p-1">
                   <button
                     onClick={() => setRankingMethod('total')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-2 py-1.5 text-xs font-medium rounded-md transition-colors flex-1 ${
                       rankingMethod === 'total'
                         ? 'bg-primary-600 text-white'
                         : 'text-gray-400 hover:text-white'
@@ -770,24 +794,24 @@ export function Scout() {
                   </button>
                   <button
                     onClick={() => setRankingMethod('ipfgl')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-2 py-1.5 text-xs font-medium rounded-md transition-colors flex-1 ${
                       rankingMethod === 'ipfgl'
                         ? 'bg-primary-600 text-white'
                         : 'text-gray-400 hover:text-white'
                     }`}
                   >
-                    IPF GL
+                    GL
                   </button>
                 </div>
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-400">View:</span>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs text-gray-400 text-center">View</span>
                 <div className="inline-flex rounded-lg bg-gray-800 p-1">
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-2 py-1.5 text-xs font-medium rounded-md transition-colors flex-1 ${
                       viewMode === 'list'
                         ? 'bg-primary-600 text-white'
                         : 'text-gray-400 hover:text-white'
@@ -797,7 +821,7 @@ export function Scout() {
                   </button>
                   <button
                     onClick={() => setViewMode('tiles')}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-2 py-1.5 text-xs font-medium rounded-md transition-colors flex-1 ${
                       viewMode === 'tiles'
                         ? 'bg-primary-600 text-white'
                         : 'text-gray-400 hover:text-white'
