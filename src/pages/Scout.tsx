@@ -174,6 +174,7 @@ export function Scout() {
   const [trendRange, setTrendRange] = useState<TrendRange>(18);
   const [predictions, setPredictions] = useState<Map<string, PredictionAnalysis>>(new Map());
   const [isPredicting, setIsPredicting] = useState(false);
+  const [showCharts, setShowCharts] = useState(false);
 
   // Initialize date defaults (last 3 years to current) - only if not already set
   useEffect(() => {
@@ -410,6 +411,127 @@ export function Scout() {
       return <span className="text-gray-600 ml-1">⇅</span>;
     }
     return <span className="text-primary-500 ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  // Format attempts - negative values indicate failed attempts
+  const formatAttempt = (weight?: number) => {
+    if (!weight || weight === 0) return null;
+    const absWeight = Math.abs(weight);
+    const failed = weight < 0;
+    return { weight: absWeight, failed };
+  };
+
+  const renderAttempts = (attempt1?: number, attempt2?: number, attempt3?: number, color: string = 'text-gray-300') => {
+    const attempts = [formatAttempt(attempt1), formatAttempt(attempt2), formatAttempt(attempt3)];
+
+    return (
+      <div className="flex gap-1 text-xs">
+        {attempts.map((attempt, idx) => {
+          if (!attempt) return <span key={idx} className="text-gray-700">-</span>;
+          return (
+            <span
+              key={idx}
+              className={`${attempt.failed ? 'line-through text-red-500/70' : color}`}
+            >
+              {attempt.weight}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Render prediction chart for a lifter
+  const renderPredictionChart = (lifterName: string) => {
+    const prediction = predictions.get(lifterName);
+    if (!prediction || !prediction.hasEnoughData) return null;
+
+    const competitions = prediction.competitions;
+    const chartWidth = 600;
+    const chartHeight = 300;
+    const padding = 40;
+
+    // Calculate scales
+    const firstDate = new Date(competitions[0].date);
+    const lastDate = new Date(targetDate);
+    const dateRange = lastDate.getTime() - firstDate.getTime();
+
+    const totals = competitions.map(c => c.total_kg);
+    const minTotal = Math.min(...totals) * 0.95;
+    const maxTotal = Math.max(...totals, prediction.predictedTotal || 0) * 1.05;
+    const totalRange = maxTotal - minTotal;
+
+    // Convert data to chart coordinates
+    const points = competitions.map(comp => {
+      const x = padding + ((new Date(comp.date).getTime() - firstDate.getTime()) / dateRange) * (chartWidth - 2 * padding);
+      const y = chartHeight - padding - ((comp.total_kg - minTotal) / totalRange) * (chartHeight - 2 * padding);
+      return { x, y, total: comp.total_kg, date: comp.date };
+    });
+
+    // Trend line points
+    const trendStartX = padding;
+    const trendEndX = chartWidth - padding;
+    const { slope, intercept } = linearRegression(
+      competitions.map(comp => ({
+        x: Math.floor((new Date(comp.date).getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)),
+        y: comp.total_kg
+      }))
+    );
+
+    const daysSinceFirst = (date: Date) => Math.floor((date.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+    const trendStartY = chartHeight - padding - ((intercept - minTotal) / totalRange) * (chartHeight - 2 * padding);
+    const trendEndTotal = intercept + slope * daysSinceFirst(lastDate);
+    const trendEndY = chartHeight - padding - ((trendEndTotal - minTotal) / totalRange) * (chartHeight - 2 * padding);
+
+    // Predicted point
+    const predX = chartWidth - padding;
+    const predY = chartHeight - padding - ((prediction.predictedTotal! - minTotal) / totalRange) * (chartHeight - 2 * padding);
+
+    return (
+      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <h4 className="text-white font-semibold mb-3">{lifterName} - Trend Analysis</h4>
+        <svg width={chartWidth} height={chartHeight} className="w-full h-auto">
+          {/* Grid lines */}
+          <line x1={padding} y1={padding} x2={padding} y2={chartHeight - padding} stroke="#374151" strokeWidth="2" />
+          <line x1={padding} y1={chartHeight - padding} x2={chartWidth - padding} y2={chartHeight - padding} stroke="#374151" strokeWidth="2" />
+
+          {/* Trend line */}
+          <line x1={trendStartX} y1={trendStartY} x2={trendEndX} y2={trendEndY} stroke="#60a5fa" strokeWidth="2" strokeDasharray="5,5" />
+
+          {/* Competition points */}
+          {points.map((point, idx) => (
+            <g key={idx}>
+              <circle cx={point.x} cy={point.y} r="5" fill="#60a5fa" />
+              <title>{`${point.date}: ${point.total} kg`}</title>
+            </g>
+          ))}
+
+          {/* Predicted point */}
+          {prediction.predictedTotal && (
+            <g>
+              <circle cx={predX} cy={predY} r="6" fill="#facc15" stroke="#fff" strokeWidth="2" />
+              <title>{`Predicted (${targetDate}): ${prediction.predictedTotal} kg`}</title>
+            </g>
+          )}
+
+          {/* Y-axis labels */}
+          <text x={padding - 10} y={padding} textAnchor="end" fill="#9ca3af" fontSize="12">{Math.round(maxTotal)} kg</text>
+          <text x={padding - 10} y={chartHeight - padding} textAnchor="end" fill="#9ca3af" fontSize="12">{Math.round(minTotal)} kg</text>
+
+          {/* X-axis labels */}
+          <text x={padding} y={chartHeight - padding + 20} textAnchor="start" fill="#9ca3af" fontSize="12">
+            {new Date(competitions[0].date).toLocaleDateString()}
+          </text>
+          <text x={chartWidth - padding} y={chartHeight - padding + 20} textAnchor="end" fill="#9ca3af" fontSize="12">
+            {new Date(targetDate).toLocaleDateString()}
+          </text>
+        </svg>
+        <div className="mt-3 text-xs text-gray-400">
+          <div>Trend: {prediction.trend === 'improving' ? '📈' : prediction.trend === 'declining' ? '📉' : '➡️'} {prediction.ratePerYear > 0 ? '+' : ''}{prediction.ratePerYear.toFixed(1)} kg/year</div>
+          <div>R² = {prediction.rSquared.toFixed(3)} ({prediction.rSquared > 0.7 ? 'Strong fit' : prediction.rSquared > 0.4 ? 'Moderate fit' : 'Weak fit'})</div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -727,6 +849,16 @@ export function Scout() {
                   </button>
                 </div>
               </div>
+
+              {/* Show Charts Button */}
+              {predictionEnabled && (
+                <button
+                  onClick={() => setShowCharts(!showCharts)}
+                  className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                >
+                  <span>{showCharts ? '📊 Hide Charts' : '📊 Show Charts'}</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -791,32 +923,38 @@ export function Scout() {
                   <td className="py-2 px-2">
                     {lifter.best_squat ? (
                       <div>
-                        <div className="font-semibold text-green-400">{lifter.best_squat.best3_squat_kg}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_squat.date)}</div>
+                        <div className="font-semibold text-green-400">{lifter.best_squat.best3_squat_kg} kg</div>
+                        {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
+                        <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_squat.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_squat.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
                   <td className="py-2 px-2">
                     {lifter.best_bench ? (
                       <div>
-                        <div className="font-semibold text-blue-400">{lifter.best_bench.best3_bench_kg}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_bench.date)}</div>
+                        <div className="font-semibold text-blue-400">{lifter.best_bench.best3_bench_kg} kg</div>
+                        {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
+                        <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_bench.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_bench.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
                   <td className="py-2 px-2">
                     {lifter.best_deadlift ? (
                       <div>
-                        <div className="font-semibold text-red-400">{lifter.best_deadlift.best3_deadlift_kg}</div>
-                        <div className="text-xs text-gray-500">{formatDate(lifter.best_deadlift.date)}</div>
+                        <div className="font-semibold text-red-400">{lifter.best_deadlift.best3_deadlift_kg} kg</div>
+                        {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
+                        <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_deadlift.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_deadlift.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
                   <td className="py-2 px-2">
                     {lifter.best_total ? (
                       <div>
-                        <div className="font-semibold text-purple-400">{lifter.best_total.total_kg}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="font-semibold text-purple-400">{lifter.best_total.total_kg} kg</div>
+                        <div className="text-xs text-gray-500 mt-0.5">
                           {formatDate(lifter.best_total.date)}
                           {lifter.best_total.weight_class_kg ? (
                             <span className="ml-1 text-gray-400">@ {lifter.best_total.weight_class_kg}</span>
@@ -824,6 +962,7 @@ export function Scout() {
                             <span className="ml-1 text-gray-400">BW {lifter.best_total.bodyweight_kg}</span>
                           ) : null}
                         </div>
+                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_total.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
@@ -943,6 +1082,18 @@ export function Scout() {
                       );
                     })()}
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Prediction Charts */}
+          {predictionEnabled && showCharts && (
+            <div className="mt-8 space-y-6">
+              <h3 className="text-xl font-semibold text-white mb-4">Trend Analysis Charts</h3>
+              {selectedLifters.map((lifterName) => (
+                <div key={lifterName}>
+                  {renderPredictionChart(lifterName)}
                 </div>
               ))}
             </div>
