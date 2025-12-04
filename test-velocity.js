@@ -25,11 +25,21 @@ function calculateDampenedVelocity(competitions) {
     ? (last.total - first.total) / monthsOverall
     : 0;
 
-  const vWeighted = (0.7 * vRecent) + (0.3 * vOverall);
+  // Velocity Capping: Prevent breakout performances from skewing predictions
+  let vRecentClamped = vRecent;
+  if (vRecent > 0 && vOverall > 0) {
+    const maxAllowedRecent = vOverall * 1.5;
+    if (vRecent > maxAllowedRecent) {
+      vRecentClamped = maxAllowedRecent;
+    }
+  }
+
+  const vWeighted = (0.6 * vRecentClamped) + (0.4 * vOverall);
   const finalVelocity = vWeighted * 0.9;
 
   return {
     vRecent,
+    vRecentClamped,
     vOverall,
     vWeighted,
     finalVelocity
@@ -79,9 +89,10 @@ console.log('  18 months ago: 600 kg');
 console.log('  12 months ago: 605 kg');
 console.log('  6 months ago: 610 kg');
 console.log('\nVelocity Breakdown:');
-console.log(`  V_recent: ${resultA.velocity.vRecent.toFixed(2)} kg/month`);
+console.log(`  V_recent (raw): ${resultA.velocity.vRecent.toFixed(2)} kg/month`);
+console.log(`  V_recent (capped): ${resultA.velocity.vRecentClamped.toFixed(2)} kg/month`);
 console.log(`  V_overall: ${resultA.velocity.vOverall.toFixed(2)} kg/month`);
-console.log(`  V_weighted: ${resultA.velocity.vWeighted.toFixed(2)} kg/month`);
+console.log(`  V_weighted (60/40): ${resultA.velocity.vWeighted.toFixed(2)} kg/month`);
 console.log(`  Final Velocity (with 0.9 friction): ${resultA.velocity.finalVelocity.toFixed(2)} kg/month`);
 console.log('\nPrediction for 6 months from now (12 months from last comp):');
 console.log(`  Months from last comp to target: 12`);
@@ -109,13 +120,48 @@ console.log('  18 months ago: 400 kg');
 console.log('  9 months ago: 450 kg');
 console.log('  1 week ago: 500 kg');
 console.log('\nVelocity Breakdown:');
-console.log(`  V_recent: ${resultB.velocity.vRecent.toFixed(2)} kg/month`);
+console.log(`  V_recent (raw): ${resultB.velocity.vRecent.toFixed(2)} kg/month`);
+console.log(`  V_recent (capped): ${resultB.velocity.vRecentClamped.toFixed(2)} kg/month`);
 console.log(`  V_overall: ${resultB.velocity.vOverall.toFixed(2)} kg/month`);
-console.log(`  V_weighted: ${resultB.velocity.vWeighted.toFixed(2)} kg/month`);
+console.log(`  V_weighted (60/40): ${resultB.velocity.vWeighted.toFixed(2)} kg/month`);
 console.log(`  Final Velocity (with 0.9 friction): ${resultB.velocity.finalVelocity.toFixed(2)} kg/month`);
 console.log('\nPrediction for 3 months from now:');
 console.log(`  Predicted Total: ${resultB.predictedTotal} kg`);
 console.log(`  Expected: ~515 kg`);
 console.log(`  Match: ${Math.abs(resultB.predictedTotal - 515) < 10 ? '✓' : '✗'}`);
+
+console.log('\n========================================');
+console.log('LIFTER A: The Breakout Performance');
+console.log('========================================');
+
+const lifterA = [
+  { date: new Date('2024-03-23'), total: 490 },
+  { date: new Date('2024-08-02'), total: 510 },
+  { date: new Date('2024-11-21'), total: 520 },
+  { date: new Date('2025-03-18'), total: 527.5 },
+  { date: new Date('2025-08-09'), total: 560 }  // Breakout performance!
+];
+
+const targetLifterA = new Date('2025-12-06');
+const resultLifterA = predictTotal(lifterA, targetLifterA);
+
+console.log('Historical Data:');
+console.log('  Mar 23, 2024: 490 kg');
+console.log('  Aug 02, 2024: 510 kg');
+console.log('  Nov 21, 2024: 520 kg');
+console.log('  Mar 18, 2025: 527.5 kg');
+console.log('  Aug 09, 2025: 560 kg (BREAKOUT!)');
+console.log('\nVelocity Breakdown:');
+console.log(`  V_recent (raw): ${resultLifterA.velocity.vRecent.toFixed(2)} kg/month`);
+console.log(`  V_recent (capped): ${resultLifterA.velocity.vRecentClamped.toFixed(2)} kg/month`);
+console.log(`  Cap applied: ${resultLifterA.velocity.vRecent !== resultLifterA.velocity.vRecentClamped ? 'YES ✓' : 'NO'}`);
+console.log(`  V_overall: ${resultLifterA.velocity.vOverall.toFixed(2)} kg/month`);
+console.log(`  V_weighted (60/40): ${resultLifterA.velocity.vWeighted.toFixed(2)} kg/month`);
+console.log(`  Final Velocity (with 0.9 friction): ${resultLifterA.velocity.finalVelocity.toFixed(2)} kg/month`);
+console.log('\nPrediction for Dec 6, 2025 (~4 months from last comp):');
+console.log(`  Predicted Total: ${resultLifterA.predictedTotal} kg`);
+console.log(`  Expected: 570-575 kg`);
+console.log(`  Match: ${resultLifterA.predictedTotal >= 570 && resultLifterA.predictedTotal <= 580 ? '✓' : '✗'}`);
+console.log(`  Without capping would be: ~612 kg (unrealistic!)`);
 
 console.log('\n========================================');

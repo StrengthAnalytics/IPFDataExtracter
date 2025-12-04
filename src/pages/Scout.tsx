@@ -11,10 +11,11 @@ type RankingMethod = 'total' | 'ipfgl';
 type TrendRange = 12 | 18 | 24;
 
 interface VelocityBreakdown {
-  vRecent: number;      // kg/month between last two points
-  vOverall: number;     // kg/month from first to last point
-  vWeighted: number;    // 70% recent + 30% overall
-  finalVelocity: number; // After 0.9 friction
+  vRecent: number;         // kg/month between last two points (raw)
+  vRecentClamped: number;  // kg/month after capping (max 1.5x overall)
+  vOverall: number;        // kg/month from first to last point
+  vWeighted: number;       // 60% recent + 40% overall
+  finalVelocity: number;   // After 0.9 friction
 }
 
 // Dampened Velocity Method for powerlifting predictions
@@ -55,14 +56,25 @@ function calculateDampenedVelocity(
     ? (last.total_kg - first.total_kg) / monthsOverall
     : 0;
 
-  // Weighted velocity (70% recent, 30% overall)
-  const vWeighted = (0.7 * vRecent) + (0.3 * vOverall);
+  // Velocity Capping: Prevent breakout performances from skewing predictions
+  // If V_recent > 1.5 * V_overall, cap it (unless negative, then keep the decline)
+  let vRecentClamped = vRecent;
+  if (vRecent > 0 && vOverall > 0) {
+    const maxAllowedRecent = vOverall * 1.5;
+    if (vRecent > maxAllowedRecent) {
+      vRecentClamped = maxAllowedRecent;
+    }
+  }
+
+  // Weighted velocity (60% recent, 40% overall for smoother predictions)
+  const vWeighted = (0.6 * vRecentClamped) + (0.4 * vOverall);
 
   // Apply friction coefficient (biological adaptation)
   const finalVelocity = vWeighted * 0.9;
 
   return {
     vRecent,
+    vRecentClamped,
     vOverall,
     vWeighted,
     finalVelocity
