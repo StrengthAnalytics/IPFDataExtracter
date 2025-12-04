@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
 import { api } from '../services/api';
 import type { LifterSearchResult, BestLifts, PredictionAnalysis, CompetitionHistoryItem } from '../types';
@@ -724,27 +725,35 @@ export function Scout() {
                   i
                 </button>
                 {showComparisonInfo && (
-                  <div className="absolute left-0 top-6 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-4 text-xs text-gray-300 z-50">
-                    <p className="font-semibold text-white mb-3">Comparison Options:</p>
+                  <>
+                    {/* Backdrop to catch mouse leave */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onMouseEnter={() => setShowComparisonInfo(false)}
+                    />
+                    {/* Centered popover */}
+                    <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 max-w-[90vw] bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-4 text-xs text-gray-300 z-50">
+                      <p className="font-semibold text-white mb-3">Comparison Options:</p>
 
-                    <div className="mb-3">
-                      <p className="font-semibold text-white mb-1">Data:</p>
-                      <p className="mb-1 text-gray-400"><span className="text-white">By Lift:</span> Best result for each lift across all competitions (cherry-picked).</p>
-                      <p className="text-gray-400"><span className="text-white">By Comp:</span> All lifts from the competition with the best total.</p>
-                    </div>
+                      <div className="mb-3">
+                        <p className="font-semibold text-white mb-1">Data:</p>
+                        <p className="mb-1 text-gray-400"><span className="text-white">By Lift:</span> Best result for each lift across all competitions (cherry-picked).</p>
+                        <p className="text-gray-400"><span className="text-white">By Comp:</span> All lifts from the competition with the best total.</p>
+                      </div>
 
-                    <div className="mb-3">
-                      <p className="font-semibold text-white mb-1">Rank by:</p>
-                      <p className="mb-1 text-gray-400"><span className="text-white">Total:</span> Sort lifters by raw kilogram total.</p>
-                      <p className="text-gray-400"><span className="text-white">IPF GL:</span> Sort by IPF Goodlift points (bodyweight-adjusted).</p>
-                    </div>
+                      <div className="mb-3">
+                        <p className="font-semibold text-white mb-1">Rank by:</p>
+                        <p className="mb-1 text-gray-400"><span className="text-white">Total:</span> Sort lifters by raw kilogram total.</p>
+                        <p className="text-gray-400"><span className="text-white">IPF GL:</span> Sort by IPF Goodlift points (bodyweight-adjusted).</p>
+                      </div>
 
-                    <div>
-                      <p className="font-semibold text-white mb-1">View:</p>
-                      <p className="mb-1 text-gray-400"><span className="text-white">List:</span> Detailed table view with all attempts.</p>
-                      <p className="text-gray-400"><span className="text-white">Tiles:</span> Compact card layout (mobile-friendly).</p>
+                      <div>
+                        <p className="font-semibold text-white mb-1">View:</p>
+                        <p className="mb-1 text-gray-400"><span className="text-white">List:</span> Detailed table view with all attempts.</p>
+                        <p className="text-gray-400"><span className="text-white">Tiles:</span> Compact card layout (mobile-friendly).</p>
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -882,7 +891,14 @@ export function Scout() {
               {getSortedData().map((lifter) => (
                 <tr key={lifter.name} className="border-b border-gray-800 hover:bg-gray-800/50">
                   <td className="py-2 px-2">
-                    <div className="font-semibold text-white">{lifter.name}</div>
+                    <Link
+                      to={`/lifter/${encodeURIComponent(lifter.name)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-white hover:text-primary-500 transition-colors"
+                    >
+                      {lifter.name}
+                    </Link>
                     <div className="text-xs text-gray-500">Meets: {lifter.total_competitions}</div>
                   </td>
                   <td className="py-2 px-2">
@@ -961,85 +977,108 @@ export function Scout() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {getSortedData().map((lifter) => (
                 <div key={lifter.name} className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-primary-500 transition-colors">
-                  <h3 className="text-lg font-bold text-white">{lifter.name}</h3>
+                  <Link
+                    to={`/lifter/${encodeURIComponent(lifter.name)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-lg font-bold text-white hover:text-primary-500 transition-colors block"
+                  >
+                    {lifter.name}
+                  </Link>
                   <div className="text-xs text-gray-500 mb-3">Meets: {lifter.total_competitions}</div>
 
                   <div className="space-y-3">
-                    {/* S/B/D Compact Row */}
+                    {/* S/B/D with attempts */}
                     <div className="grid grid-cols-3 gap-2">
                       {/* Squat */}
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">S</div>
+                        <div className="text-xs text-gray-500 mb-1">Squat</div>
                         {lifter.best_squat ? (
-                          <div className="font-semibold text-green-400">{lifter.best_squat.best3_squat_kg}</div>
+                          <>
+                            <div className="font-semibold text-green-400">{lifter.best_squat.best3_squat_kg} kg</div>
+                            {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
+                          </>
                         ) : <span className="text-gray-600">-</span>}
                       </div>
 
                       {/* Bench */}
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">B</div>
+                        <div className="text-xs text-gray-500 mb-1">Bench</div>
                         {lifter.best_bench ? (
-                          <div className="font-semibold text-blue-400">{lifter.best_bench.best3_bench_kg}</div>
+                          <>
+                            <div className="font-semibold text-blue-400">{lifter.best_bench.best3_bench_kg} kg</div>
+                            {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
+                          </>
                         ) : <span className="text-gray-600">-</span>}
                       </div>
 
                       {/* Deadlift */}
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">D</div>
+                        <div className="text-xs text-gray-500 mb-1">Deadlift</div>
                         {lifter.best_deadlift ? (
-                          <div className="font-semibold text-red-400">{lifter.best_deadlift.best3_deadlift_kg}</div>
+                          <>
+                            <div className="font-semibold text-red-400">{lifter.best_deadlift.best3_deadlift_kg} kg</div>
+                            {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
+                          </>
                         ) : <span className="text-gray-600">-</span>}
                       </div>
                     </div>
 
-                    {/* Total */}
+                    {/* Total and Prediction - Same Row */}
                     <div className="pt-2 border-t border-gray-700">
-                      <div className="text-xs text-gray-500 mb-1">{rankingMethod === 'total' ? 'Total' : 'IPF GL Score'}</div>
-                      {lifter.best_total ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Total */}
                         <div>
-                          {rankingMethod === 'total' ? (
-                            <>
-                              <div className="font-bold text-purple-400 text-xl">{formatWeight(lifter.best_total.total_kg)}</div>
-                              <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="font-bold text-purple-400 text-xl">{formatIPFGL(lifter.best_total.goodlift)}</div>
-                              <div className="text-xs text-gray-500">{formatWeight(lifter.best_total.total_kg)}</div>
-                            </>
-                          )}
-                          <div className="text-xs text-gray-500 mt-1">
-                            {formatDate(lifter.best_total.date)}
-                            {lifter.best_total.weight_class_kg ? (
-                              <span className="ml-1 text-gray-400">@ {lifter.best_total.weight_class_kg} kg</span>
-                            ) : lifter.best_total.bodyweight_kg ? (
-                              <span className="ml-1 text-gray-400">BW {lifter.best_total.bodyweight_kg} kg</span>
-                            ) : null}
-                          </div>
-                          <div className="text-xs text-gray-600 truncate">{lifter.best_total.meet_name}</div>
-                        </div>
-                      ) : <span className="text-gray-600">-</span>}
-                    </div>
-
-                    {/* Prediction */}
-                    {(() => {
-                      const prediction = predictions.get(lifter.name);
-                      return (
-                        <div className="pt-2 border-t border-gray-700">
-                          <div className="text-xs text-gray-500 mb-1">Predicted Total</div>
-                          {prediction?.hasEnoughData ? (
+                          <div className="text-xs text-gray-500 mb-1">{rankingMethod === 'total' ? 'Total' : 'IPF GL'}</div>
+                          {lifter.best_total ? (
                             <div>
-                              <div className="font-bold text-yellow-400 text-xl">{formatWeight(prediction.predictedTotal!)}</div>
+                              {rankingMethod === 'total' ? (
+                                <>
+                                  <div className="font-bold text-purple-400 text-lg">{formatWeight(lifter.best_total.total_kg)}</div>
+                                  <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="font-bold text-purple-400 text-lg">{formatIPFGL(lifter.best_total.goodlift)}</div>
+                                  <div className="text-xs text-gray-500">{formatWeight(lifter.best_total.total_kg)}</div>
+                                </>
+                              )}
                               <div className="text-xs text-gray-500 mt-1">
-                                Based on {prediction.competitionsInRange} {prediction.competitionsInRange === 1 ? 'comp' : 'comps'} over {trendRange} months
+                                {formatDate(lifter.best_total.date)}
                               </div>
+                              <div className="text-xs text-gray-500">
+                                {lifter.best_total.weight_class_kg ? (
+                                  <span>@ {lifter.best_total.weight_class_kg} kg</span>
+                                ) : lifter.best_total.bodyweight_kg ? (
+                                  <span>BW {lifter.best_total.bodyweight_kg} kg</span>
+                                ) : null}
+                              </div>
+                              <div className="text-xs text-gray-600 line-clamp-2 mt-0.5">{lifter.best_total.meet_name}</div>
                             </div>
-                          ) : (
-                            <div className="text-xs text-gray-500">Not enough data</div>
-                          )}
+                          ) : <span className="text-gray-600">-</span>}
                         </div>
-                      );
-                    })()}
+
+                        {/* Prediction */}
+                        {(() => {
+                          const prediction = predictions.get(lifter.name);
+                          return (
+                            <div>
+                              <div className="text-xs text-gray-500 mb-1">Predicted</div>
+                              {prediction?.hasEnoughData ? (
+                                <div>
+                                  <div className="font-bold text-yellow-400 text-lg">{formatWeight(prediction.predictedTotal!)}</div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {prediction.competitionsInRange} {prediction.competitionsInRange === 1 ? 'comp' : 'comps'} over {trendRange}mo
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-xs text-gray-500">Not enough data</div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
