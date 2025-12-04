@@ -10,29 +10,109 @@ type AggregationMode = 'byLift' | 'byComp';
 type RankingMethod = 'total' | 'ipfgl';
 type TrendRange = 12 | 18 | 24;
 
-// Linear regression calculation
-function linearRegression(points: { x: number; y: number }[]): { slope: number; intercept: number; rSquared: number } {
-  const n = points.length;
-  if (n < 2) return { slope: 0, intercept: 0, rSquared: 0 };
-
-  const sumX = points.reduce((s, p) => s + p.x, 0);
-  const sumY = points.reduce((s, p) => s + p.y, 0);
-  const sumXY = points.reduce((s, p) => s + p.x * p.y, 0);
-  const sumXX = points.reduce((s, p) => s + p.x * p.x, 0);
-
-  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-  const intercept = (sumY - slope * sumX) / n;
-
-  // Calculate R²
-  const meanY = sumY / n;
-  const ssTotal = points.reduce((s, p) => s + Math.pow(p.y - meanY, 2), 0);
-  const ssResidual = points.reduce((s, p) => s + Math.pow(p.y - (intercept + slope * p.x), 2), 0);
-  const rSquared = ssTotal === 0 ? 0 : 1 - (ssResidual / ssTotal);
-
-  return { slope, intercept, rSquared };
+interface VelocityBreakdown {
+  vRecent: number;         // kg/month between last two points (raw)
+  vRecentClamped: number;  // kg/month after capping (max 1.5x overall)
+  vOverall: number;        // kg/month from first to last point
+  vWeighted: number;       // 60% recent + 40% overall
+  finalVelocity: number;   // After 0.9 friction
 }
 
-// Calculate prediction for a lifter
+// Monotonic Filter: Remove strategic underperformances and bad meets
+// Keeps only competitions where total >= previous best
+function applyMonotonicFilter(
+  competitions: CompetitionHistoryItem[]
+): CompetitionHistoryItem[] {
+  if (competitions.length < 2) return competitions;
+
+  // Sort by date (oldest first)
+  const sorted = [...competitions].sort((a, b) =>
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const cleanHistory: CompetitionHistoryItem[] = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const current = sorted[i];
+    const lastClean = cleanHistory[cleanHistory.length - 1];
+
+    // Only keep if total is >= last clean total (monotonically increasing)
+    if (current.total_kg >= lastClean.total_kg) {
+      cleanHistory.push(current);
+    }
+  }
+
+  // Exception: If filtering leaves < 2 points, revert to original
+  // (we need at least 2 points to calculate velocity)
+  if (cleanHistory.length < 2) {
+    return sorted;
+  }
+
+  return cleanHistory;
+}
+
+// Dampened Velocity Method for powerlifting predictions
+// Respects current momentum with biological friction to prevent unrealistic projections
+function calculateDampenedVelocity(
+  competitions: CompetitionHistoryItem[]
+): VelocityBreakdown | null {
+  // Need at least 2 data points
+  if (competitions.length < 2) return null;
+
+  // Step 1: Apply Monotonic Filter to remove bad meets/strategic underperformances
+  const cleanHistory = applyMonotonicFilter(competitions);
+
+  const DAYS_PER_MONTH = 30.44;
+
+  // Get key data points from cleaned data
+  const first = cleanHistory[0];
+  const secondToLast = cleanHistory[cleanHistory.length - 2];
+  const last = cleanHistory[cleanHistory.length - 1];
+
+  // Calculate time deltas in months
+  const monthsBetweenLastTwo =
+    (new Date(last.date).getTime() - new Date(secondToLast.date).getTime()) /
+    (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
+
+  const monthsOverall =
+    (new Date(last.date).getTime() - new Date(first.date).getTime()) /
+    (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
+
+  // Calculate velocities (kg/month)
+  const vRecent = monthsBetweenLastTwo > 0
+    ? (last.total_kg - secondToLast.total_kg) / monthsBetweenLastTwo
+    : 0;
+
+  const vOverall = monthsOverall > 0
+    ? (last.total_kg - first.total_kg) / monthsOverall
+    : 0;
+
+  // Velocity Capping: Prevent breakout performances from skewing predictions
+  // If V_recent > 1.5 * V_overall, cap it (unless negative, then keep the decline)
+  let vRecentClamped = vRecent;
+  if (vRecent > 0 && vOverall > 0) {
+    const maxAllowedRecent = vOverall * 1.5;
+    if (vRecent > maxAllowedRecent) {
+      vRecentClamped = maxAllowedRecent;
+    }
+  }
+
+  // Weighted velocity (60% recent, 40% overall for smoother predictions)
+  const vWeighted = (0.6 * vRecentClamped) + (0.4 * vOverall);
+
+  // Apply friction coefficient (biological adaptation)
+  const finalVelocity = vWeighted * 0.9;
+
+  return {
+    vRecent,
+    vRecentClamped,
+    vOverall,
+    vWeighted,
+    finalVelocity
+  };
+}
+
+// Calculate prediction for a lifter using Dampened Velocity Method
 function calculatePrediction(
   competitions: CompetitionHistoryItem[],
   targetDate: string
@@ -52,15 +132,43 @@ function calculatePrediction(
     };
   }
 
-  // Convert dates to days since first competition
-  const firstDate = new Date(competitions[0].date);
-  const points = competitions.map(comp => ({
-    x: Math.floor((new Date(comp.date).getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)),
-    y: comp.total_kg
-  }));
+  // Calculate velocity breakdown
+  const velocity = calculateDampenedVelocity(competitions);
 
-  const { slope, intercept, rSquared } = linearRegression(points);
-  const ratePerYear = slope * 365;
+  if (!velocity) {
+    return {
+      predictedTotal: null,
+      targetDate,
+      ratePerYear: 0,
+      trend: 'stable',
+      competitionsInRange: competitions.length,
+      rSquared: 0,
+      hasEnoughData: false,
+      competitions
+    };
+  }
+
+  // Sort competitions by date
+  const sorted = [...competitions].sort((a, b) =>
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const lastComp = sorted[sorted.length - 1];
+  const lastTotal = lastComp.total_kg;
+  const lastDate = new Date(lastComp.date);
+  const targetDateObj = new Date(targetDate);
+
+  // Calculate months to future date
+  const DAYS_PER_MONTH = 30.44;
+  const monthsToFuture =
+    (targetDateObj.getTime() - lastDate.getTime()) /
+    (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
+
+  // Apply the prediction formula
+  let predictedTotal = lastTotal + (monthsToFuture * velocity.finalVelocity);
+
+  // Convert rate to kg/year for display
+  const ratePerYear = velocity.finalVelocity * 12;
 
   // Determine trend
   let trend: 'improving' | 'declining' | 'stable' = 'stable';
@@ -68,18 +176,15 @@ function calculatePrediction(
     trend = ratePerYear > 0 ? 'improving' : 'declining';
   }
 
-  // Calculate predicted value
-  const targetDateObj = new Date(targetDate);
-  const daysSinceFirst = Math.floor((targetDateObj.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
-  let predictedTotal = intercept + slope * daysSinceFirst;
-
-  // If negative trend, use most recent competition
-  if (slope < 0) {
-    predictedTotal = competitions[competitions.length - 1].total_kg;
-  }
-
   // Round to nearest 2.5 kg
   predictedTotal = Math.round(predictedTotal / 2.5) * 2.5;
+
+  // Calculate R² based on velocity consistency (approximation)
+  // Higher consistency = higher R²
+  const velocityRatio = velocity.vOverall !== 0
+    ? Math.abs(velocity.vRecent / velocity.vOverall)
+    : 1;
+  const rSquared = Math.max(0, Math.min(1, 1 - Math.abs(1 - velocityRatio) * 0.5));
 
   return {
     predictedTotal,
@@ -503,7 +608,10 @@ export function Scout() {
     return (
       <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
         <div className="flex justify-between items-center mb-4">
-          <h4 className="text-white font-semibold">Trend Analysis - All Lifters</h4>
+          <h4 className="text-white font-semibold">
+            Trend Analysis - All Lifters
+            <span className="text-gray-400 text-sm ml-2">(Dampened Velocity Method)</span>
+          </h4>
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-400">Highlight:</label>
             <select
@@ -532,35 +640,64 @@ export function Scout() {
             const opacity = focusedLifter === '' ? 1 : (isFocused ? 1 : 0.2);
             const strokeWidth = isFocused ? 3 : 2;
 
-            // Calculate trend line
-            const firstCompDate = new Date(prediction.competitions[0].date);
-            const { slope, intercept } = linearRegression(
-              prediction.competitions.map(comp => ({
-                x: Math.floor((new Date(comp.date).getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24)),
-                y: comp.total_kg
-              }))
+            // Calculate trend line using Dampened Velocity Method
+            const sorted = [...prediction.competitions].sort((a, b) =>
+              new Date(a.date).getTime() - new Date(b.date).getTime()
             );
 
-            const daysSinceFirst = (date: Date) => Math.floor((date.getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24));
-            const trendStartTotal = intercept;
-            const trendEndTotal = intercept + slope * daysSinceFirst(targetDateObj);
+            const velocity = calculateDampenedVelocity(sorted);
+            if (!velocity) return null; // Skip if can't calculate velocity
 
-            const trendStartX = dateToX(firstCompDate);
-            const trendStartY = totalToY(trendStartTotal);
-            const trendEndX = dateToX(targetDateObj);
-            const trendEndY = totalToY(trendEndTotal);
+            const firstCompDate = new Date(sorted[0].date);
+            const lastCompDate = new Date(sorted[sorted.length - 1].date);
+            const lastTotal = sorted[sorted.length - 1].total_kg;
+
+            const DAYS_PER_MONTH = 30.44;
+
+            // Generate trend line path using velocity projection
+            const numPoints = 50;
+            const pathPoints: string[] = [];
+
+            for (let i = 0; i <= numPoints; i++) {
+              const progress = i / numPoints;
+              const currentDate = new Date(
+                firstCompDate.getTime() +
+                (targetDateObj.getTime() - firstCompDate.getTime()) * progress
+              );
+
+              let projectedTotal: number;
+
+              if (currentDate <= lastCompDate) {
+                // For historical data, use actual path (interpolated)
+                const monthsFromFirst =
+                  (currentDate.getTime() - firstCompDate.getTime()) /
+                  (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
+                const firstTotal = sorted[0].total_kg;
+                projectedTotal = firstTotal + (monthsFromFirst * velocity.vOverall);
+              } else {
+                // For future projection, use dampened velocity from last competition
+                const monthsFromLast =
+                  (currentDate.getTime() - lastCompDate.getTime()) /
+                  (1000 * 60 * 60 * 24 * DAYS_PER_MONTH);
+                projectedTotal = lastTotal + (monthsFromLast * velocity.finalVelocity);
+              }
+
+              const x = dateToX(currentDate);
+              const y = totalToY(projectedTotal);
+              pathPoints.push(i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`);
+            }
+
+            const trendPath = pathPoints.join(' ');
 
             return (
               <g key={lifterName} opacity={opacity}>
                 {/* Trend line */}
-                <line
-                  x1={trendStartX}
-                  y1={trendStartY}
-                  x2={trendEndX}
-                  y2={trendEndY}
+                <path
+                  d={trendPath}
                   stroke={color}
                   strokeWidth={strokeWidth}
                   strokeDasharray="5,5"
+                  fill="none"
                 />
 
                 {/* Competition points */}
@@ -787,7 +924,7 @@ export function Scout() {
                   <option value={24}>Last 24 months</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Use competitions from this period for prediction
+                  Uses Dampened Velocity Method with biological friction
                 </p>
               </div>
             </div>

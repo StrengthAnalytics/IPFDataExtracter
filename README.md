@@ -31,6 +31,58 @@ Compare up to 10 lifters side-by-side with powerful analytics:
 - Customizable date ranges
 - Filter by equipment type and weight class
 
+### 📊 Performance Prediction (Dampened Velocity Method)
+Predict future competition totals using a custom algorithm designed specifically for powerlifting:
+
+**The Algorithm:**
+Our prediction system uses the **Dampened Velocity Method**, which respects current momentum while applying biological friction to prevent unrealistic projections. Unlike traditional regression models that often overpredict for experienced lifters, this method accounts for the natural plateau effect in strength sports.
+
+**How It Works:**
+
+1. **Data Cleaning (Monotonic Filter)**
+   - Removes strategic underperformances and bad meet days
+   - Only keeps competitions where total ≥ previous best
+   - Captures true strength progression, not competition performance noise
+   - Example: Filters out qualifying meets where lifters lift sub-maximal weights
+
+2. **Velocity Calculation**
+   - `V_recent`: Rate of gain (kg/month) between last two competitions
+   - `V_overall`: Rate of gain (kg/month) from first to last competition
+   - Uses cleaned data for accurate velocity measurements
+
+3. **Velocity Capping (Breakout Prevention)**
+   - Caps `V_recent` to max 1.5× `V_overall` when positive
+   - Prevents single massive PRs from projecting impossible future gains
+   - Example: A 32.5kg jump won't predict another 30kg in 4 months
+   - Negative velocities (declining) are never capped
+
+4. **Weighted Average**
+   - `V_weighted = (0.6 × V_recent_capped) + (0.4 × V_overall)`
+   - 60/40 weighting favors recency while smoothing volatility
+   - Balances recent momentum with historical consistency
+
+5. **Biological Friction**
+   - `Final_velocity = V_weighted × 0.9`
+   - 0.9 coefficient accounts for adaptation and diminishing returns
+   - Prevents unrealistic linear projections
+
+6. **Final Prediction**
+   - `Predicted_total = Last_total + (Months_to_target × Final_velocity)`
+   - Rounded to nearest 2.5 kg (standard plate increment)
+
+**Why This Works:**
+- **Respects Reality**: Accounts for biological adaptation and plateau effects
+- **Handles Outliers**: Capping prevents breakout performances from skewing predictions
+- **Clean Data**: Filters bad meets to focus on true strength progression
+- **Smooth Predictions**: 60/40 weighting prevents volatile projections
+- **Sport-Specific**: Designed for powerlifting's unique performance patterns
+
+**Example Use Cases:**
+- Plan for upcoming competitions 3-12 months out
+- Set realistic training goals based on historical progression
+- Compare multiple lifters' projected performance at the same date
+- Visualize trend lines and predicted totals on interactive charts
+
 ### 🎯 Strength Standards
 Discover benchmarks for your weight class:
 - Standards from beginner to world-class
@@ -489,6 +541,10 @@ For issues, questions, or feature requests:
 ## Recent Updates
 
 **Latest Features (2025):**
+- ✅ **Dampened Velocity Method** for performance predictions with biological friction
+- ✅ **Monotonic Filter** to remove bad meets and strategic underperformances
+- ✅ **Velocity Capping** to prevent breakout performances from skewing predictions
+- ✅ **Interactive Trend Charts** showing historical progression and future projections
 - ✅ IPF GL (Goodlift Points) ranking system
 - ✅ Dual aggregation modes (By Lift / By Comp)
 - ✅ Responsive view modes (List / Tiles)
@@ -502,12 +558,12 @@ For issues, questions, or feature requests:
 Future features under consideration:
 - [ ] Advanced filtering (by federation, age class, division)
 - [ ] Wilks/DOTS score comparisons
-- [ ] Historical performance graphs and trends
-- [ ] Export comparisons to CSV/PDF
+- [ ] Individual lift predictions (squat, bench, deadlift separately)
+- [ ] Export comparisons and predictions to CSV/PDF
 - [ ] User accounts and saved lifter lists
 - [ ] Custom scouting reports
 - [ ] Meet-specific analytics
-- [ ] Competition predictions based on historical data
+- [ ] Confidence intervals for predictions
 
 ---
 
