@@ -175,6 +175,7 @@ export function Scout() {
   const [predictions, setPredictions] = useState<Map<string, PredictionAnalysis>>(new Map());
   const [isPredicting, setIsPredicting] = useState(false);
   const [showCharts, setShowCharts] = useState(false);
+  const [focusedLifter, setFocusedLifter] = useState<string>('');
 
   // Initialize date defaults (last 3 years to current) - only if not already set
   useEffect(() => {
@@ -441,94 +442,198 @@ export function Scout() {
     );
   };
 
-  // Render prediction chart for a lifter
-  const renderPredictionChart = (lifterName: string) => {
-    const prediction = predictions.get(lifterName);
-    if (!prediction || !prediction.hasEnoughData) return null;
-
-    const competitions = prediction.competitions;
-    const chartWidth = 600;
-    const chartHeight = 300;
-    const padding = 40;
-
-    // Calculate scales
-    const firstDate = new Date(competitions[0].date);
-    const lastDate = new Date(targetDate);
-    const dateRange = lastDate.getTime() - firstDate.getTime();
-
-    const totals = competitions.map(c => c.total_kg);
-    const minTotal = Math.min(...totals) * 0.95;
-    const maxTotal = Math.max(...totals, prediction.predictedTotal || 0) * 1.05;
-    const totalRange = maxTotal - minTotal;
-
-    // Convert data to chart coordinates
-    const points = competitions.map(comp => {
-      const x = padding + ((new Date(comp.date).getTime() - firstDate.getTime()) / dateRange) * (chartWidth - 2 * padding);
-      const y = chartHeight - padding - ((comp.total_kg - minTotal) / totalRange) * (chartHeight - 2 * padding);
-      return { x, y, total: comp.total_kg, date: comp.date };
+  // Render unified prediction chart showing all lifters
+  const renderUnifiedPredictionChart = () => {
+    // Filter to only lifters with enough data
+    const validLifters = selectedLifters.filter(name => {
+      const pred = predictions.get(name);
+      return pred && pred.hasEnoughData;
     });
 
-    // Trend line points
-    const trendStartX = padding;
-    const trendEndX = chartWidth - padding;
-    const { slope, intercept } = linearRegression(
-      competitions.map(comp => ({
-        x: Math.floor((new Date(comp.date).getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)),
-        y: comp.total_kg
-      }))
-    );
+    if (validLifters.length === 0) return null;
 
-    const daysSinceFirst = (date: Date) => Math.floor((date.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
-    const trendStartY = chartHeight - padding - ((intercept - minTotal) / totalRange) * (chartHeight - 2 * padding);
-    const trendEndTotal = intercept + slope * daysSinceFirst(lastDate);
-    const trendEndY = chartHeight - padding - ((trendEndTotal - minTotal) / totalRange) * (chartHeight - 2 * padding);
+    const chartWidth = 800;
+    const chartHeight = 400;
+    const padding = { top: 40, right: 40, bottom: 60, left: 60 };
 
-    // Predicted point
-    const predX = chartWidth - padding;
-    const predY = chartHeight - padding - ((prediction.predictedTotal! - minTotal) / totalRange) * (chartHeight - 2 * padding);
+    // Color palette for different lifters
+    const colors = ['#60a5fa', '#34d399', '#f87171', '#a78bfa', '#fb923c', '#fbbf24', '#ec4899', '#14b8a6'];
+
+    // Find global date range and total range
+    let globalMinDate = Infinity;
+    let globalMaxDate = -Infinity;
+    let globalMinTotal = Infinity;
+    let globalMaxTotal = -Infinity;
+
+    validLifters.forEach(lifterName => {
+      const prediction = predictions.get(lifterName)!;
+      prediction.competitions.forEach(comp => {
+        const compDate = new Date(comp.date).getTime();
+        globalMinDate = Math.min(globalMinDate, compDate);
+        globalMaxDate = Math.max(globalMaxDate, compDate);
+        globalMinTotal = Math.min(globalMinTotal, comp.total_kg);
+        globalMaxTotal = Math.max(globalMaxTotal, comp.total_kg);
+      });
+      if (prediction.predictedTotal) {
+        globalMaxTotal = Math.max(globalMaxTotal, prediction.predictedTotal);
+      }
+    });
+
+    const targetDateObj = new Date(targetDate);
+    globalMaxDate = Math.max(globalMaxDate, targetDateObj.getTime());
+
+    // Add padding to totals range
+    const totalPadding = (globalMaxTotal - globalMinTotal) * 0.1;
+    globalMinTotal -= totalPadding;
+    globalMaxTotal += totalPadding;
+
+    const dateRange = globalMaxDate - globalMinDate;
+    const totalRange = globalMaxTotal - globalMinTotal;
+
+    // Convert date to x coordinate
+    const dateToX = (date: Date) => {
+      return padding.left + ((date.getTime() - globalMinDate) / dateRange) * (chartWidth - padding.left - padding.right);
+    };
+
+    // Convert total to y coordinate
+    const totalToY = (total: number) => {
+      return chartHeight - padding.bottom - ((total - globalMinTotal) / totalRange) * (chartHeight - padding.top - padding.bottom);
+    };
 
     return (
       <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-        <h4 className="text-white font-semibold mb-3">{lifterName} - Trend Analysis</h4>
-        <svg width={chartWidth} height={chartHeight} className="w-full h-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-white font-semibold">Trend Analysis - All Lifters</h4>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-400">Highlight:</label>
+            <select
+              className="bg-gray-700 text-white text-sm rounded px-3 py-1 border border-gray-600"
+              value={focusedLifter}
+              onChange={(e) => setFocusedLifter(e.target.value)}
+            >
+              <option value="">All lifters</option>
+              {validLifters.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <svg width={chartWidth} height={chartHeight} className="w-full h-auto bg-gray-900 rounded">
           {/* Grid lines */}
-          <line x1={padding} y1={padding} x2={padding} y2={chartHeight - padding} stroke="#374151" strokeWidth="2" />
-          <line x1={padding} y1={chartHeight - padding} x2={chartWidth - padding} y2={chartHeight - padding} stroke="#374151" strokeWidth="2" />
+          <line x1={padding.left} y1={padding.top} x2={padding.left} y2={chartHeight - padding.bottom} stroke="#374151" strokeWidth="2" />
+          <line x1={padding.left} y1={chartHeight - padding.bottom} x2={chartWidth - padding.right} y2={chartHeight - padding.bottom} stroke="#374151" strokeWidth="2" />
 
-          {/* Trend line */}
-          <line x1={trendStartX} y1={trendStartY} x2={trendEndX} y2={trendEndY} stroke="#60a5fa" strokeWidth="2" strokeDasharray="5,5" />
+          {/* Render each lifter's data */}
+          {validLifters.map((lifterName, lifterIdx) => {
+            const prediction = predictions.get(lifterName)!;
+            const color = colors[lifterIdx % colors.length];
+            const isFocused = focusedLifter === '' || focusedLifter === lifterName;
+            const opacity = focusedLifter === '' ? 1 : (isFocused ? 1 : 0.2);
+            const strokeWidth = isFocused ? 3 : 2;
 
-          {/* Competition points */}
-          {points.map((point, idx) => (
-            <g key={idx}>
-              <circle cx={point.x} cy={point.y} r="5" fill="#60a5fa" />
-              <title>{`${point.date}: ${point.total} kg`}</title>
-            </g>
-          ))}
+            // Calculate trend line
+            const firstCompDate = new Date(prediction.competitions[0].date);
+            const { slope, intercept } = linearRegression(
+              prediction.competitions.map(comp => ({
+                x: Math.floor((new Date(comp.date).getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24)),
+                y: comp.total_kg
+              }))
+            );
 
-          {/* Predicted point */}
-          {prediction.predictedTotal && (
-            <g>
-              <circle cx={predX} cy={predY} r="6" fill="#facc15" stroke="#fff" strokeWidth="2" />
-              <title>{`Predicted (${targetDate}): ${prediction.predictedTotal} kg`}</title>
-            </g>
-          )}
+            const daysSinceFirst = (date: Date) => Math.floor((date.getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24));
+            const trendStartTotal = intercept;
+            const trendEndTotal = intercept + slope * daysSinceFirst(targetDateObj);
+
+            const trendStartX = dateToX(firstCompDate);
+            const trendStartY = totalToY(trendStartTotal);
+            const trendEndX = dateToX(targetDateObj);
+            const trendEndY = totalToY(trendEndTotal);
+
+            return (
+              <g key={lifterName} opacity={opacity}>
+                {/* Trend line */}
+                <line
+                  x1={trendStartX}
+                  y1={trendStartY}
+                  x2={trendEndX}
+                  y2={trendEndY}
+                  stroke={color}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray="5,5"
+                />
+
+                {/* Competition points */}
+                {prediction.competitions.map((comp, compIdx) => {
+                  const x = dateToX(new Date(comp.date));
+                  const y = totalToY(comp.total_kg);
+                  const isInteractive = isFocused && focusedLifter !== '';
+
+                  return (
+                    <g key={compIdx}>
+                      <circle
+                        cx={x}
+                        cy={y}
+                        r={isInteractive ? 6 : 4}
+                        fill={color}
+                        className={isInteractive ? 'cursor-pointer hover:r-8' : ''}
+                      >
+                        {!isInteractive && <title>{`${lifterName}\n${comp.date}: ${comp.total_kg} kg`}</title>}
+                      </circle>
+                      {isInteractive && (
+                        <title>{`${lifterName}\n${comp.date}: ${comp.total_kg} kg\n${comp.meet_name}\n${comp.weight_class_kg ? comp.weight_class_kg + ' kg class' : ''}`}</title>
+                      )}
+                    </g>
+                  );
+                })}
+
+                {/* Predicted point */}
+                {prediction.predictedTotal && (
+                  <g>
+                    <circle
+                      cx={dateToX(targetDateObj)}
+                      cy={totalToY(prediction.predictedTotal)}
+                      r={isFocused ? 7 : 5}
+                      fill={color}
+                      stroke="#fff"
+                      strokeWidth="2"
+                    />
+                    <title>{`${lifterName}\nPredicted (${targetDate}): ${prediction.predictedTotal} kg`}</title>
+                  </g>
+                )}
+              </g>
+            );
+          })}
 
           {/* Y-axis labels */}
-          <text x={padding - 10} y={padding} textAnchor="end" fill="#9ca3af" fontSize="12">{Math.round(maxTotal)} kg</text>
-          <text x={padding - 10} y={chartHeight - padding} textAnchor="end" fill="#9ca3af" fontSize="12">{Math.round(minTotal)} kg</text>
+          <text x={padding.left - 10} y={padding.top} textAnchor="end" fill="#9ca3af" fontSize="12">{Math.round(globalMaxTotal)} kg</text>
+          <text x={padding.left - 10} y={chartHeight - padding.bottom} textAnchor="end" fill="#9ca3af" fontSize="12">{Math.round(globalMinTotal)} kg</text>
+          <text x={padding.left - 10} y={(padding.top + chartHeight - padding.bottom) / 2} textAnchor="end" fill="#9ca3af" fontSize="12">{Math.round((globalMaxTotal + globalMinTotal) / 2)} kg</text>
 
           {/* X-axis labels */}
-          <text x={padding} y={chartHeight - padding + 20} textAnchor="start" fill="#9ca3af" fontSize="12">
-            {new Date(competitions[0].date).toLocaleDateString()}
+          <text x={padding.left} y={chartHeight - padding.bottom + 25} textAnchor="start" fill="#9ca3af" fontSize="12">
+            {new Date(globalMinDate).toLocaleDateString()}
           </text>
-          <text x={chartWidth - padding} y={chartHeight - padding + 20} textAnchor="end" fill="#9ca3af" fontSize="12">
+          <text x={chartWidth - padding.right} y={chartHeight - padding.bottom + 25} textAnchor="end" fill="#9ca3af" fontSize="12">
             {new Date(targetDate).toLocaleDateString()}
           </text>
         </svg>
-        <div className="mt-3 text-xs text-gray-400">
-          <div>Trend: {prediction.trend === 'improving' ? '📈' : prediction.trend === 'declining' ? '📉' : '➡️'} {prediction.ratePerYear > 0 ? '+' : ''}{prediction.ratePerYear.toFixed(1)} kg/year</div>
-          <div>R² = {prediction.rSquared.toFixed(3)} ({prediction.rSquared > 0.7 ? 'Strong fit' : prediction.rSquared > 0.4 ? 'Moderate fit' : 'Weak fit'})</div>
+
+        {/* Legend */}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {validLifters.map((lifterName, idx) => {
+            const prediction = predictions.get(lifterName)!;
+            const color = colors[idx % colors.length];
+            return (
+              <div key={lifterName} className="flex items-center gap-2 text-xs">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></div>
+                <span className="text-gray-300">{lifterName}</span>
+                <span className="text-gray-500">
+                  ({prediction.ratePerYear > 0 ? '+' : ''}{prediction.ratePerYear.toFixed(1)} kg/yr)
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -954,6 +1059,7 @@ export function Scout() {
                     {lifter.best_total ? (
                       <div>
                         <div className="font-semibold text-purple-400">{lifter.best_total.total_kg} kg</div>
+                        <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
                         <div className="text-xs text-gray-500 mt-0.5">
                           {formatDate(lifter.best_total.date)}
                           {lifter.best_total.weight_class_kg ? (
@@ -1089,13 +1195,8 @@ export function Scout() {
 
           {/* Prediction Charts */}
           {predictionEnabled && showCharts && (
-            <div className="mt-8 space-y-6">
-              <h3 className="text-xl font-semibold text-white mb-4">Trend Analysis Charts</h3>
-              {selectedLifters.map((lifterName) => (
-                <div key={lifterName}>
-                  {renderPredictionChart(lifterName)}
-                </div>
-              ))}
+            <div className="mt-8">
+              {renderUnifiedPredictionChart()}
             </div>
           )}
         </div>
