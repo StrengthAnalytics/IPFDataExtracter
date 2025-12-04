@@ -9,6 +9,7 @@ type ViewMode = 'list' | 'tiles';
 type AggregationMode = 'byLift' | 'byComp';
 type RankingMethod = 'total' | 'ipfgl';
 type TrendRange = 12 | 18 | 24;
+type RegressionType = 'linear' | 'logarithmic';
 
 // Linear regression calculation
 function linearRegression(points: { x: number; y: number }[]): { slope: number; intercept: number; rSquared: number } {
@@ -32,10 +33,48 @@ function linearRegression(points: { x: number; y: number }[]): { slope: number; 
   return { slope, intercept, rSquared };
 }
 
+// Logarithmic regression calculation
+// Model: total = a × ln(days + 1) + b
+function logarithmicRegression(points: { x: number; y: number }[]): { a: number; b: number; rSquared: number } {
+  const n = points.length;
+  if (n < 2) return { a: 0, b: 0, rSquared: 0 };
+
+  // Transform x values: use ln(x + 1) to handle day 0
+  const transformed = points.map(p => ({
+    lnX: Math.log(p.x + 1),  // +1 to avoid ln(0)
+    y: p.y
+  }));
+
+  const sumLnX = transformed.reduce((s, p) => s + p.lnX, 0);
+  const sumY = transformed.reduce((s, p) => s + p.y, 0);
+  const sumLnXY = transformed.reduce((s, p) => s + p.lnX * p.y, 0);
+  const sumLnX2 = transformed.reduce((s, p) => s + p.lnX * p.lnX, 0);
+
+  const a = (n * sumLnXY - sumLnX * sumY) / (n * sumLnX2 - sumLnX * sumLnX);
+  const b = (sumY - a * sumLnX) / n;
+
+  // Calculate R² to measure fit quality
+  const meanY = sumY / n;
+  const ssTotal = points.reduce((s, p) => s + Math.pow(p.y - meanY, 2), 0);
+  const ssResidual = points.reduce((s, p) => {
+    const predicted = a * Math.log(p.x + 1) + b;
+    return s + Math.pow(p.y - predicted, 2);
+  }, 0);
+  const rSquared = ssTotal === 0 ? 0 : 1 - (ssResidual / ssTotal);
+
+  return { a, b, rSquared };
+}
+
+// Predict total using logarithmic model
+function predictLogarithmicTotal(targetDays: number, a: number, b: number): number {
+  return a * Math.log(targetDays + 1) + b;
+}
+
 // Calculate prediction for a lifter
 function calculatePrediction(
   competitions: CompetitionHistoryItem[],
-  targetDate: string
+  targetDate: string,
+  regressionType: RegressionType = 'linear'
 ): PredictionAnalysis {
   const hasEnoughData = competitions.length >= 2;
 
@@ -59,23 +98,52 @@ function calculatePrediction(
     y: comp.total_kg
   }));
 
-  const { slope, intercept, rSquared } = linearRegression(points);
-  const ratePerYear = slope * 365;
+  const targetDateObj = new Date(targetDate);
+  const daysSinceFirst = Math.floor((targetDateObj.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  let predictedTotal: number;
+  let ratePerYear: number;
+  let rSquared: number;
+
+  if (regressionType === 'logarithmic') {
+    // Use logarithmic regression
+    const { a, b, rSquared: r2 } = logarithmicRegression(points);
+    rSquared = r2;
+
+    // Calculate predicted value
+    predictedTotal = predictLogarithmicTotal(daysSinceFirst, a, b);
+
+    // Calculate rate per year by comparing current prediction to prediction one year ago
+    const daysInYear = 365;
+    const currentDays = Math.max(0, daysSinceFirst);
+    const oneYearAgoDays = Math.max(0, currentDays - daysInYear);
+    const currentPrediction = predictLogarithmicTotal(currentDays, a, b);
+    const oneYearAgoPrediction = predictLogarithmicTotal(oneYearAgoDays, a, b);
+    ratePerYear = currentPrediction - oneYearAgoPrediction;
+
+    // If negative rate, use most recent competition
+    if (ratePerYear < 0) {
+      predictedTotal = competitions[competitions.length - 1].total_kg;
+    }
+  } else {
+    // Use linear regression
+    const { slope, intercept, rSquared: r2 } = linearRegression(points);
+    rSquared = r2;
+    ratePerYear = slope * 365;
+
+    // Calculate predicted value
+    predictedTotal = intercept + slope * daysSinceFirst;
+
+    // If negative trend, use most recent competition
+    if (slope < 0) {
+      predictedTotal = competitions[competitions.length - 1].total_kg;
+    }
+  }
 
   // Determine trend
   let trend: 'improving' | 'declining' | 'stable' = 'stable';
   if (Math.abs(ratePerYear) > 5) {
     trend = ratePerYear > 0 ? 'improving' : 'declining';
-  }
-
-  // Calculate predicted value
-  const targetDateObj = new Date(targetDate);
-  const daysSinceFirst = Math.floor((targetDateObj.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
-  let predictedTotal = intercept + slope * daysSinceFirst;
-
-  // If negative trend, use most recent competition
-  if (slope < 0) {
-    predictedTotal = competitions[competitions.length - 1].total_kg;
   }
 
   // Round to nearest 2.5 kg
@@ -172,6 +240,7 @@ export function Scout() {
     return sixMonthsOut.toISOString().split('T')[0];
   });
   const [trendRange, setTrendRange] = useState<TrendRange>(18);
+  const [regressionType, setRegressionType] = useState<RegressionType>('linear');
   const [predictions, setPredictions] = useState<Map<string, PredictionAnalysis>>(new Map());
   const [isPredicting, setIsPredicting] = useState(false);
   const [showCharts, setShowCharts] = useState(false);
@@ -288,7 +357,7 @@ export function Scout() {
                 weightClass || undefined,
                 undefined // equipment - could add later
               );
-              const prediction = calculatePrediction(history, targetDate);
+              const prediction = calculatePrediction(history, targetDate, regressionType);
               newPredictions.set(lifterName, prediction);
             } catch (error) {
               console.error(`Error fetching prediction for ${lifterName}:`, error);
@@ -303,7 +372,7 @@ export function Scout() {
     };
 
     fetchPredictions();
-  }, [predictionEnabled, selectedLifters, targetDate, trendRange, weightClass]);
+  }, [predictionEnabled, selectedLifters, targetDate, trendRange, weightClass, regressionType]);
 
   const handleAddLifter = (lifter: LifterSearchResult) => {
     if (!selectedLifters.includes(lifter.name) && selectedLifters.length < 10) {
@@ -503,7 +572,10 @@ export function Scout() {
     return (
       <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
         <div className="flex justify-between items-center mb-4">
-          <h4 className="text-white font-semibold">Trend Analysis - All Lifters</h4>
+          <h4 className="text-white font-semibold">
+            Trend Analysis - All Lifters
+            <span className="text-gray-400 text-sm ml-2">({regressionType === 'linear' ? 'Linear' : 'Logarithmic'} Regression)</span>
+          </h4>
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-400">Highlight:</label>
             <select
@@ -532,35 +604,65 @@ export function Scout() {
             const opacity = focusedLifter === '' ? 1 : (isFocused ? 1 : 0.2);
             const strokeWidth = isFocused ? 3 : 2;
 
-            // Calculate trend line
+            // Calculate trend line based on regression type
             const firstCompDate = new Date(prediction.competitions[0].date);
-            const { slope, intercept } = linearRegression(
-              prediction.competitions.map(comp => ({
-                x: Math.floor((new Date(comp.date).getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24)),
-                y: comp.total_kg
-              }))
-            );
+            const points = prediction.competitions.map(comp => ({
+              x: Math.floor((new Date(comp.date).getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24)),
+              y: comp.total_kg
+            }));
 
             const daysSinceFirst = (date: Date) => Math.floor((date.getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24));
-            const trendStartTotal = intercept;
-            const trendEndTotal = intercept + slope * daysSinceFirst(targetDateObj);
+
+            let trendStartTotal: number;
+            let trendEndTotal: number;
+
+            if (regressionType === 'logarithmic') {
+              const { a, b } = logarithmicRegression(points);
+              trendStartTotal = predictLogarithmicTotal(0, a, b);
+              trendEndTotal = predictLogarithmicTotal(daysSinceFirst(targetDateObj), a, b);
+            } else {
+              const { slope, intercept } = linearRegression(points);
+              trendStartTotal = intercept;
+              trendEndTotal = intercept + slope * daysSinceFirst(targetDateObj);
+            }
 
             const trendStartX = dateToX(firstCompDate);
             const trendStartY = totalToY(trendStartTotal);
             const trendEndX = dateToX(targetDateObj);
             const trendEndY = totalToY(trendEndTotal);
 
+            // Generate trend line path (curve for logarithmic, line for linear)
+            let trendPath: string;
+            if (regressionType === 'logarithmic') {
+              const { a, b } = logarithmicRegression(points);
+              // Create a curved path by sampling points along the logarithmic curve
+              const numPoints = 50;
+              const endDays = daysSinceFirst(targetDateObj);
+              const pathPoints: string[] = [];
+
+              for (let i = 0; i <= numPoints; i++) {
+                const days = (endDays * i) / numPoints;
+                const total = predictLogarithmicTotal(days, a, b);
+                const date = new Date(firstCompDate.getTime() + days * 24 * 60 * 60 * 1000);
+                const x = dateToX(date);
+                const y = totalToY(total);
+                pathPoints.push(i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`);
+              }
+              trendPath = pathPoints.join(' ');
+            } else {
+              // Simple line for linear regression
+              trendPath = `M ${trendStartX} ${trendStartY} L ${trendEndX} ${trendEndY}`;
+            }
+
             return (
               <g key={lifterName} opacity={opacity}>
                 {/* Trend line */}
-                <line
-                  x1={trendStartX}
-                  y1={trendStartY}
-                  x2={trendEndX}
-                  y2={trendEndY}
+                <path
+                  d={trendPath}
                   stroke={color}
                   strokeWidth={strokeWidth}
                   strokeDasharray="5,5"
+                  fill="none"
                 />
 
                 {/* Competition points */}
@@ -758,7 +860,7 @@ export function Scout() {
           </div>
 
           {predictionEnabled && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Target Date */}
               <div>
                 <label className="block text-sm text-gray-400 mb-2">Target Competition Date</label>
@@ -788,6 +890,22 @@ export function Scout() {
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
                   Use competitions from this period for prediction
+                </p>
+              </div>
+
+              {/* Regression Type */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Regression Model</label>
+                <select
+                  className="input"
+                  value={regressionType}
+                  onChange={(e) => setRegressionType(e.target.value as RegressionType)}
+                >
+                  <option value="linear">Linear</option>
+                  <option value="logarithmic">Logarithmic</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Logarithmic accounts for diminishing returns
                 </p>
               </div>
             </div>
