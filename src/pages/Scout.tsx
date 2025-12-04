@@ -1,13 +1,97 @@
 import { useState, useEffect } from 'react';
 import { LifterSearch } from '../components/LifterSearch';
 import { api } from '../services/api';
-import type { LifterSearchResult, BestLifts } from '../types';
+import type { LifterSearchResult, BestLifts, PredictionAnalysis, CompetitionHistoryItem } from '../types';
 
-type SortColumn = 'name' | 'squat' | 'bench' | 'deadlift' | 'total' | 'meets';
+type SortColumn = 'name' | 'squat' | 'bench' | 'deadlift' | 'total' | 'meets' | 'prediction';
 type SortDirection = 'asc' | 'desc';
 type ViewMode = 'list' | 'tiles';
 type AggregationMode = 'byLift' | 'byComp';
 type RankingMethod = 'total' | 'ipfgl';
+type TrendRange = 12 | 18 | 24;
+
+// Linear regression calculation
+function linearRegression(points: { x: number; y: number }[]): { slope: number; intercept: number; rSquared: number } {
+  const n = points.length;
+  if (n < 2) return { slope: 0, intercept: 0, rSquared: 0 };
+
+  const sumX = points.reduce((s, p) => s + p.x, 0);
+  const sumY = points.reduce((s, p) => s + p.y, 0);
+  const sumXY = points.reduce((s, p) => s + p.x * p.y, 0);
+  const sumXX = points.reduce((s, p) => s + p.x * p.x, 0);
+
+  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+  const intercept = (sumY - slope * sumX) / n;
+
+  // Calculate R²
+  const meanY = sumY / n;
+  const ssTotal = points.reduce((s, p) => s + Math.pow(p.y - meanY, 2), 0);
+  const ssResidual = points.reduce((s, p) => s + Math.pow(p.y - (intercept + slope * p.x), 2), 0);
+  const rSquared = ssTotal === 0 ? 0 : 1 - (ssResidual / ssTotal);
+
+  return { slope, intercept, rSquared };
+}
+
+// Calculate prediction for a lifter
+function calculatePrediction(
+  competitions: CompetitionHistoryItem[],
+  targetDate: string
+): PredictionAnalysis {
+  const hasEnoughData = competitions.length >= 2;
+
+  if (!hasEnoughData) {
+    return {
+      predictedTotal: null,
+      targetDate,
+      ratePerYear: 0,
+      trend: 'stable',
+      competitionsInRange: competitions.length,
+      rSquared: 0,
+      hasEnoughData: false,
+      competitions
+    };
+  }
+
+  // Convert dates to days since first competition
+  const firstDate = new Date(competitions[0].date);
+  const points = competitions.map(comp => ({
+    x: Math.floor((new Date(comp.date).getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)),
+    y: comp.total_kg
+  }));
+
+  const { slope, intercept, rSquared } = linearRegression(points);
+  const ratePerYear = slope * 365;
+
+  // Determine trend
+  let trend: 'improving' | 'declining' | 'stable' = 'stable';
+  if (Math.abs(ratePerYear) > 5) {
+    trend = ratePerYear > 0 ? 'improving' : 'declining';
+  }
+
+  // Calculate predicted value
+  const targetDateObj = new Date(targetDate);
+  const daysSinceFirst = Math.floor((targetDateObj.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+  let predictedTotal = intercept + slope * daysSinceFirst;
+
+  // If negative trend, use most recent competition
+  if (slope < 0) {
+    predictedTotal = competitions[competitions.length - 1].total_kg;
+  }
+
+  // Round to nearest 2.5 kg
+  predictedTotal = Math.round(predictedTotal / 2.5) * 2.5;
+
+  return {
+    predictedTotal,
+    targetDate,
+    ratePerYear,
+    trend,
+    competitionsInRange: competitions.length,
+    rSquared,
+    hasEnoughData: true,
+    competitions
+  };
+}
 
 // SessionStorage keys
 const STORAGE_KEYS = {
@@ -78,6 +162,20 @@ export function Scout() {
     if (saved) return saved;
     return window.innerWidth < 768 ? 'tiles' : 'list';
   });
+
+  // Prediction feature state
+  const [predictionEnabled, setPredictionEnabled] = useState(false);
+  const [targetDate, setTargetDate] = useState<string>(() => {
+    // Default to 6 months from now
+    const sixMonthsOut = new Date();
+    sixMonthsOut.setMonth(sixMonthsOut.getMonth() + 6);
+    return sixMonthsOut.toISOString().split('T')[0];
+  });
+  const [trendRange, setTrendRange] = useState<TrendRange>(18);
+  const [predictions, setPredictions] = useState<Map<string, PredictionAnalysis>>(new Map());
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [showCharts, setShowCharts] = useState(false);
+  const [focusedLifter, setFocusedLifter] = useState<string>('');
 
   // Initialize date defaults (last 3 years to current) - only if not already set
   useEffect(() => {
@@ -169,6 +267,44 @@ export function Scout() {
     fetchComparison();
   }, [selectedLifters, startDate, endDate, weightClass, aggregationMode, rankingMethod]);
 
+  // Fetch predictions when enabled or parameters change
+  useEffect(() => {
+    if (!predictionEnabled || selectedLifters.length === 0) {
+      setPredictions(new Map());
+      return;
+    }
+
+    const fetchPredictions = async () => {
+      setIsPredicting(true);
+      const newPredictions = new Map<string, PredictionAnalysis>();
+
+      try {
+        await Promise.all(
+          selectedLifters.map(async (lifterName) => {
+            try {
+              const history = await api.getLifterHistory(
+                lifterName,
+                trendRange,
+                weightClass || undefined,
+                undefined // equipment - could add later
+              );
+              const prediction = calculatePrediction(history, targetDate);
+              newPredictions.set(lifterName, prediction);
+            } catch (error) {
+              console.error(`Error fetching prediction for ${lifterName}:`, error);
+            }
+          })
+        );
+
+        setPredictions(newPredictions);
+      } finally {
+        setIsPredicting(false);
+      }
+    };
+
+    fetchPredictions();
+  }, [predictionEnabled, selectedLifters, targetDate, trendRange, weightClass]);
+
   const handleAddLifter = (lifter: LifterSearchResult) => {
     if (!selectedLifters.includes(lifter.name) && selectedLifters.length < 10) {
       setSelectedLifters([...selectedLifters, lifter.name]);
@@ -251,6 +387,10 @@ export function Scout() {
           aValue = a.total_competitions;
           bValue = b.total_competitions;
           break;
+        case 'prediction':
+          aValue = predictions.get(a.name)?.predictedTotal || 0;
+          bValue = predictions.get(b.name)?.predictedTotal || 0;
+          break;
       }
 
       if (typeof aValue === 'string' && typeof bValue === 'string') {
@@ -286,7 +426,7 @@ export function Scout() {
     const attempts = [formatAttempt(attempt1), formatAttempt(attempt2), formatAttempt(attempt3)];
 
     return (
-      <div className="flex gap-1.5 text-xs">
+      <div className="flex gap-1 text-xs">
         {attempts.map((attempt, idx) => {
           if (!attempt) return <span key={idx} className="text-gray-700">-</span>;
           return (
@@ -298,6 +438,203 @@ export function Scout() {
             </span>
           );
         })}
+      </div>
+    );
+  };
+
+  // Render unified prediction chart showing all lifters
+  const renderUnifiedPredictionChart = () => {
+    // Filter to only lifters with enough data
+    const validLifters = selectedLifters.filter(name => {
+      const pred = predictions.get(name);
+      return pred && pred.hasEnoughData;
+    });
+
+    if (validLifters.length === 0) return null;
+
+    const chartWidth = 800;
+    const chartHeight = 400;
+    const padding = { top: 40, right: 40, bottom: 60, left: 60 };
+
+    // Color palette for different lifters
+    const colors = ['#60a5fa', '#34d399', '#f87171', '#a78bfa', '#fb923c', '#fbbf24', '#ec4899', '#14b8a6'];
+
+    // Find global date range and total range
+    let globalMinDate = Infinity;
+    let globalMaxDate = -Infinity;
+    let globalMinTotal = Infinity;
+    let globalMaxTotal = -Infinity;
+
+    validLifters.forEach(lifterName => {
+      const prediction = predictions.get(lifterName)!;
+      prediction.competitions.forEach(comp => {
+        const compDate = new Date(comp.date).getTime();
+        globalMinDate = Math.min(globalMinDate, compDate);
+        globalMaxDate = Math.max(globalMaxDate, compDate);
+        globalMinTotal = Math.min(globalMinTotal, comp.total_kg);
+        globalMaxTotal = Math.max(globalMaxTotal, comp.total_kg);
+      });
+      if (prediction.predictedTotal) {
+        globalMaxTotal = Math.max(globalMaxTotal, prediction.predictedTotal);
+      }
+    });
+
+    const targetDateObj = new Date(targetDate);
+    globalMaxDate = Math.max(globalMaxDate, targetDateObj.getTime());
+
+    // Add padding to totals range
+    const totalPadding = (globalMaxTotal - globalMinTotal) * 0.1;
+    globalMinTotal -= totalPadding;
+    globalMaxTotal += totalPadding;
+
+    const dateRange = globalMaxDate - globalMinDate;
+    const totalRange = globalMaxTotal - globalMinTotal;
+
+    // Convert date to x coordinate
+    const dateToX = (date: Date) => {
+      return padding.left + ((date.getTime() - globalMinDate) / dateRange) * (chartWidth - padding.left - padding.right);
+    };
+
+    // Convert total to y coordinate
+    const totalToY = (total: number) => {
+      return chartHeight - padding.bottom - ((total - globalMinTotal) / totalRange) * (chartHeight - padding.top - padding.bottom);
+    };
+
+    return (
+      <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <div className="flex justify-between items-center mb-4">
+          <h4 className="text-white font-semibold">Trend Analysis - All Lifters</h4>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-400">Highlight:</label>
+            <select
+              className="bg-gray-700 text-white text-sm rounded px-3 py-1 border border-gray-600"
+              value={focusedLifter}
+              onChange={(e) => setFocusedLifter(e.target.value)}
+            >
+              <option value="">All lifters</option>
+              {validLifters.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <svg width={chartWidth} height={chartHeight} className="w-full h-auto bg-gray-900 rounded">
+          {/* Grid lines */}
+          <line x1={padding.left} y1={padding.top} x2={padding.left} y2={chartHeight - padding.bottom} stroke="#374151" strokeWidth="2" />
+          <line x1={padding.left} y1={chartHeight - padding.bottom} x2={chartWidth - padding.right} y2={chartHeight - padding.bottom} stroke="#374151" strokeWidth="2" />
+
+          {/* Render each lifter's data */}
+          {validLifters.map((lifterName, lifterIdx) => {
+            const prediction = predictions.get(lifterName)!;
+            const color = colors[lifterIdx % colors.length];
+            const isFocused = focusedLifter === '' || focusedLifter === lifterName;
+            const opacity = focusedLifter === '' ? 1 : (isFocused ? 1 : 0.2);
+            const strokeWidth = isFocused ? 3 : 2;
+
+            // Calculate trend line
+            const firstCompDate = new Date(prediction.competitions[0].date);
+            const { slope, intercept } = linearRegression(
+              prediction.competitions.map(comp => ({
+                x: Math.floor((new Date(comp.date).getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24)),
+                y: comp.total_kg
+              }))
+            );
+
+            const daysSinceFirst = (date: Date) => Math.floor((date.getTime() - firstCompDate.getTime()) / (1000 * 60 * 60 * 24));
+            const trendStartTotal = intercept;
+            const trendEndTotal = intercept + slope * daysSinceFirst(targetDateObj);
+
+            const trendStartX = dateToX(firstCompDate);
+            const trendStartY = totalToY(trendStartTotal);
+            const trendEndX = dateToX(targetDateObj);
+            const trendEndY = totalToY(trendEndTotal);
+
+            return (
+              <g key={lifterName} opacity={opacity}>
+                {/* Trend line */}
+                <line
+                  x1={trendStartX}
+                  y1={trendStartY}
+                  x2={trendEndX}
+                  y2={trendEndY}
+                  stroke={color}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray="5,5"
+                />
+
+                {/* Competition points */}
+                {prediction.competitions.map((comp, compIdx) => {
+                  const x = dateToX(new Date(comp.date));
+                  const y = totalToY(comp.total_kg);
+                  const isInteractive = isFocused && focusedLifter !== '';
+
+                  return (
+                    <g key={compIdx}>
+                      <circle
+                        cx={x}
+                        cy={y}
+                        r={isInteractive ? 6 : 4}
+                        fill={color}
+                        className={isInteractive ? 'cursor-pointer hover:r-8' : ''}
+                      >
+                        {!isInteractive && <title>{`${lifterName}\n${comp.date}: ${comp.total_kg} kg`}</title>}
+                      </circle>
+                      {isInteractive && (
+                        <title>{`${lifterName}\n${comp.date}: ${comp.total_kg} kg\n${comp.meet_name}\n${comp.weight_class_kg ? comp.weight_class_kg + ' kg class' : ''}`}</title>
+                      )}
+                    </g>
+                  );
+                })}
+
+                {/* Predicted point */}
+                {prediction.predictedTotal && (
+                  <g>
+                    <circle
+                      cx={dateToX(targetDateObj)}
+                      cy={totalToY(prediction.predictedTotal)}
+                      r={isFocused ? 7 : 5}
+                      fill={color}
+                      stroke="#fff"
+                      strokeWidth="2"
+                    />
+                    <title>{`${lifterName}\nPredicted (${targetDate}): ${prediction.predictedTotal} kg`}</title>
+                  </g>
+                )}
+              </g>
+            );
+          })}
+
+          {/* Y-axis labels */}
+          <text x={padding.left - 10} y={padding.top} textAnchor="end" fill="#9ca3af" fontSize="12">{Math.round(globalMaxTotal)} kg</text>
+          <text x={padding.left - 10} y={chartHeight - padding.bottom} textAnchor="end" fill="#9ca3af" fontSize="12">{Math.round(globalMinTotal)} kg</text>
+          <text x={padding.left - 10} y={(padding.top + chartHeight - padding.bottom) / 2} textAnchor="end" fill="#9ca3af" fontSize="12">{Math.round((globalMaxTotal + globalMinTotal) / 2)} kg</text>
+
+          {/* X-axis labels */}
+          <text x={padding.left} y={chartHeight - padding.bottom + 25} textAnchor="start" fill="#9ca3af" fontSize="12">
+            {new Date(globalMinDate).toLocaleDateString()}
+          </text>
+          <text x={chartWidth - padding.right} y={chartHeight - padding.bottom + 25} textAnchor="end" fill="#9ca3af" fontSize="12">
+            {new Date(targetDate).toLocaleDateString()}
+          </text>
+        </svg>
+
+        {/* Legend */}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {validLifters.map((lifterName, idx) => {
+            const prediction = predictions.get(lifterName)!;
+            const color = colors[idx % colors.length];
+            return (
+              <div key={lifterName} className="flex items-center gap-2 text-xs">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></div>
+                <span className="text-gray-300">{lifterName}</span>
+                <span className="text-gray-500">
+                  ({prediction.ratePerYear > 0 ? '+' : ''}{prediction.ratePerYear.toFixed(1)} kg/yr)
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -403,6 +740,67 @@ export function Scout() {
           </p>
         </div>
       </div>
+
+      {/* Prediction Controls */}
+      {selectedLifters.length > 0 && (
+        <div className="card mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white">Performance Prediction</h2>
+            <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+              <span>Enable Predictions</span>
+              <input
+                type="checkbox"
+                checked={predictionEnabled}
+                onChange={(e) => setPredictionEnabled(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-primary-500 focus:ring-primary-500 focus:ring-offset-gray-900"
+              />
+            </label>
+          </div>
+
+          {predictionEnabled && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Target Date */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Target Competition Date</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Predict performance at this future date
+                </p>
+              </div>
+
+              {/* Trend Range */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">Trend Analysis Range</label>
+                <select
+                  className="input"
+                  value={trendRange}
+                  onChange={(e) => setTrendRange(Number(e.target.value) as TrendRange)}
+                >
+                  <option value={12}>Last 12 months</option>
+                  <option value={18}>Last 18 months</option>
+                  <option value={24}>Last 24 months</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Use competitions from this period for prediction
+                </p>
+              </div>
+            </div>
+          )}
+
+          {predictionEnabled && isPredicting && (
+            <div className="mt-4 flex items-center gap-2 text-gray-400 text-sm">
+              <div className="animate-spin h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full"></div>
+              <span>Calculating predictions...</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Selected Lifters */}
       {selectedLifters.length > 0 && (
@@ -556,6 +954,16 @@ export function Scout() {
                   </button>
                 </div>
               </div>
+
+              {/* Show Charts Button */}
+              {predictionEnabled && (
+                <button
+                  onClick={() => setShowCharts(!showCharts)}
+                  className="px-4 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                >
+                  <span>{showCharts ? '📊 Hide Charts' : '📊 Show Charts'}</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -566,108 +974,124 @@ export function Scout() {
             <thead>
               <tr className="border-b border-gray-700">
                 <th
-                  className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  className="text-left py-2 px-2 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
                   onClick={() => handleSort('name')}
                 >
                   Lifter<SortIcon column="name" />
                 </th>
                 <th
-                  className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  className="text-left py-2 px-2 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
                   onClick={() => handleSort('squat')}
                 >
-                  Best Squat<SortIcon column="squat" />
+                  Squat<SortIcon column="squat" />
                 </th>
                 <th
-                  className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  className="text-left py-2 px-2 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
                   onClick={() => handleSort('bench')}
                 >
-                  Best Bench<SortIcon column="bench" />
+                  Bench<SortIcon column="bench" />
                 </th>
                 <th
-                  className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  className="text-left py-2 px-2 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
                   onClick={() => handleSort('deadlift')}
                 >
-                  Best Deadlift<SortIcon column="deadlift" />
+                  Deadlift<SortIcon column="deadlift" />
                 </th>
                 <th
-                  className="text-left py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  className="text-left py-2 px-2 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
                   onClick={() => handleSort('total')}
                 >
-                  {rankingMethod === 'total' ? 'Best Total' : 'IPF GL Score'}<SortIcon column="total" />
+                  Total<SortIcon column="total" />
                 </th>
                 <th
-                  className="text-center py-3 px-4 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                  className="text-center py-2 px-2 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
                   onClick={() => handleSort('meets')}
                 >
                   Meets<SortIcon column="meets" />
                 </th>
+                {predictionEnabled && (
+                  <th
+                    className="text-left py-2 px-2 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
+                    onClick={() => handleSort('prediction')}
+                  >
+                    Pred.<SortIcon column="prediction" />
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {getSortedData().map((lifter) => (
                 <tr key={lifter.name} className="border-b border-gray-800 hover:bg-gray-800/50">
-                  <td className="py-3 px-4">
+                  <td className="py-2 px-2">
                     <div className="font-semibold text-white">{lifter.name}</div>
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-2 px-2">
                     {lifter.best_squat ? (
                       <div>
-                        <div className="font-semibold text-green-400">{formatWeight(lifter.best_squat.best3_squat_kg)}</div>
+                        <div className="font-semibold text-green-400">{lifter.best_squat.best3_squat_kg} kg</div>
                         {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
-                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_squat.date)}</div>
-                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_squat.meet_name}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_squat.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_squat.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-2 px-2">
                     {lifter.best_bench ? (
                       <div>
-                        <div className="font-semibold text-blue-400">{formatWeight(lifter.best_bench.best3_bench_kg)}</div>
+                        <div className="font-semibold text-blue-400">{lifter.best_bench.best3_bench_kg} kg</div>
                         {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
-                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_bench.date)}</div>
-                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_bench.meet_name}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_bench.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_bench.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-2 px-2">
                     {lifter.best_deadlift ? (
                       <div>
-                        <div className="font-semibold text-red-400">{formatWeight(lifter.best_deadlift.best3_deadlift_kg)}</div>
+                        <div className="font-semibold text-red-400">{lifter.best_deadlift.best3_deadlift_kg} kg</div>
                         {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
-                        <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_deadlift.date)}</div>
-                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_deadlift.meet_name}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_deadlift.date)}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_deadlift.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-2 px-2">
                     {lifter.best_total ? (
                       <div>
-                        {rankingMethod === 'total' ? (
-                          <>
-                            <div className="font-semibold text-purple-400">{formatWeight(lifter.best_total.total_kg)}</div>
-                            <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="font-semibold text-purple-400">{formatIPFGL(lifter.best_total.goodlift)}</div>
-                            <div className="text-xs text-gray-500">{formatWeight(lifter.best_total.total_kg)}</div>
-                          </>
-                        )}
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className="font-semibold text-purple-400">{lifter.best_total.total_kg} kg</div>
+                        <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">
                           {formatDate(lifter.best_total.date)}
                           {lifter.best_total.weight_class_kg ? (
-                            <span className="ml-1 text-gray-400">@ {lifter.best_total.weight_class_kg} kg</span>
+                            <span className="ml-1 text-gray-400">@ {lifter.best_total.weight_class_kg}</span>
                           ) : lifter.best_total.bodyweight_kg ? (
-                            <span className="ml-1 text-gray-400">BW {lifter.best_total.bodyweight_kg} kg</span>
+                            <span className="ml-1 text-gray-400">BW {lifter.best_total.bodyweight_kg}</span>
                           ) : null}
                         </div>
-                        <div className="text-xs text-gray-600 truncate max-w-[200px]">{lifter.best_total.meet_name}</div>
+                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_total.meet_name}</div>
                       </div>
                     ) : <span className="text-gray-600">-</span>}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-2 px-2 text-center">
                     <span className="text-gray-400">{lifter.total_competitions}</span>
                   </td>
+                  {predictionEnabled && (() => {
+                    const prediction = predictions.get(lifter.name);
+                    return (
+                      <td className="py-2 px-2">
+                        {prediction?.hasEnoughData ? (
+                          <div>
+                            <div className="font-semibold text-yellow-400">{prediction.predictedTotal}</div>
+                            <div className="text-xs text-gray-500">
+                              {prediction.competitionsInRange} over {trendRange}mo
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-500">N/A</div>
+                        )}
+                      </td>
+                    );
+                  })()}
                 </tr>
               ))}
             </tbody>
@@ -683,43 +1107,31 @@ export function Scout() {
                   <h3 className="text-lg font-bold text-white mb-3">{lifter.name}</h3>
 
                   <div className="space-y-3">
-                    {/* Squat */}
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Squat</div>
-                      {lifter.best_squat ? (
-                        <div>
-                          <div className="font-semibold text-green-400 text-lg">{formatWeight(lifter.best_squat.best3_squat_kg)}</div>
-                          {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
-                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_squat.date)}</div>
-                          <div className="text-xs text-gray-600 truncate">{lifter.best_squat.meet_name}</div>
-                        </div>
-                      ) : <span className="text-gray-600">-</span>}
-                    </div>
+                    {/* S/B/D Compact Row */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Squat */}
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">S</div>
+                        {lifter.best_squat ? (
+                          <div className="font-semibold text-green-400">{lifter.best_squat.best3_squat_kg}</div>
+                        ) : <span className="text-gray-600">-</span>}
+                      </div>
 
-                    {/* Bench */}
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Bench</div>
-                      {lifter.best_bench ? (
-                        <div>
-                          <div className="font-semibold text-blue-400 text-lg">{formatWeight(lifter.best_bench.best3_bench_kg)}</div>
-                          {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
-                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_bench.date)}</div>
-                          <div className="text-xs text-gray-600 truncate">{lifter.best_bench.meet_name}</div>
-                        </div>
-                      ) : <span className="text-gray-600">-</span>}
-                    </div>
+                      {/* Bench */}
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">B</div>
+                        {lifter.best_bench ? (
+                          <div className="font-semibold text-blue-400">{lifter.best_bench.best3_bench_kg}</div>
+                        ) : <span className="text-gray-600">-</span>}
+                      </div>
 
-                    {/* Deadlift */}
-                    <div>
-                      <div className="text-xs text-gray-500 mb-1">Deadlift</div>
-                      {lifter.best_deadlift ? (
-                        <div>
-                          <div className="font-semibold text-red-400 text-lg">{formatWeight(lifter.best_deadlift.best3_deadlift_kg)}</div>
-                          {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
-                          <div className="text-xs text-gray-500 mt-1">{formatDate(lifter.best_deadlift.date)}</div>
-                          <div className="text-xs text-gray-600 truncate">{lifter.best_deadlift.meet_name}</div>
-                        </div>
-                      ) : <span className="text-gray-600">-</span>}
+                      {/* Deadlift */}
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">D</div>
+                        {lifter.best_deadlift ? (
+                          <div className="font-semibold text-red-400">{lifter.best_deadlift.best3_deadlift_kg}</div>
+                        ) : <span className="text-gray-600">-</span>}
+                      </div>
                     </div>
 
                     {/* Total */}
@@ -755,9 +1167,36 @@ export function Scout() {
                     <div className="text-xs text-gray-500">
                       {lifter.total_competitions} {lifter.total_competitions === 1 ? 'meet' : 'meets'}
                     </div>
+
+                    {/* Prediction */}
+                    {predictionEnabled && (() => {
+                      const prediction = predictions.get(lifter.name);
+                      return (
+                        <div className="pt-2 border-t border-gray-700">
+                          <div className="text-xs text-gray-500 mb-1">Predicted Total</div>
+                          {prediction?.hasEnoughData ? (
+                            <div>
+                              <div className="font-bold text-yellow-400 text-xl">{formatWeight(prediction.predictedTotal!)}</div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Based on {prediction.competitionsInRange} {prediction.competitionsInRange === 1 ? 'comp' : 'comps'} over {trendRange} months
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-500">Not enough data</div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Prediction Charts */}
+          {predictionEnabled && showCharts && (
+            <div className="mt-8">
+              {renderUnifiedPredictionChart()}
             </div>
           )}
         </div>

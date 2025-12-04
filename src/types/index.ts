@@ -110,3 +110,22 @@ export interface ComparisonData {
   timeframe_years: number;
   lifters: BestLifts[];
 }
+
+export interface CompetitionHistoryItem {
+  date: string;
+  total_kg: number;
+  meet_name: string;
+  equipment: string;
+  weight_class_kg: string;
+}
+
+export interface PredictionAnalysis {
+  predictedTotal: number | null;
+  targetDate: string;
+  ratePerYear: number;
+  trend: 'improving' | 'declining' | 'stable';
+  competitionsInRange: number;
+  rSquared: number;
+  hasEnoughData: boolean;
+  competitions: CompetitionHistoryItem[];
+}
