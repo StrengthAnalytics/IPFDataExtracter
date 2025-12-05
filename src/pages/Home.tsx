@@ -85,7 +85,7 @@ export function Home() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-3 mb-4">
+            <div className="flex flex-col md:flex-row gap-3 mb-4">
               <div className="flex-1">
                 <LifterSearch
                   onSelectLifter={handleSelectLifter}
@@ -95,7 +95,7 @@ export function Home() {
                 />
               </div>
               <select
-                className="input w-40"
+                className="input w-full md:w-40"
                 value={weightClass}
                 onChange={(e) => setWeightClass(e.target.value)}
               >
