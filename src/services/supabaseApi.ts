@@ -607,6 +607,85 @@ export const api = {
   },
 
   /**
+   * Get jump patterns for a lifter
+   * Calculates average weight jumps between attempts for each lift
+   */
+  async getJumpPatterns(name: string): Promise<{
+    squat: { firstJump: { average: number; min: number; max: number; count: number } | null; secondJump: { average: number; min: number; max: number; count: number } | null } | null;
+    bench: { firstJump: { average: number; min: number; max: number; count: number } | null; secondJump: { average: number; min: number; max: number; count: number } | null } | null;
+    deadlift: { firstJump: { average: number; min: number; max: number; count: number } | null; secondJump: { average: number; min: number; max: number; count: number } | null } | null;
+  }> {
+    const { data, error } = await supabase
+      .from('lifter_records')
+      .select('date, squat1_kg, squat2_kg, squat3_kg, bench1_kg, bench2_kg, bench3_kg, deadlift1_kg, deadlift2_kg, deadlift3_kg')
+      .eq('name', name)
+      .order('date', { ascending: false });
+
+    if (error) throw new APIError(500, error.message);
+
+    const records = data || [];
+
+    const calculateJumps = (
+      attempt1Key: string,
+      attempt2Key: string,
+      attempt3Key: string
+    ) => {
+      const firstJumps: number[] = [];
+      const secondJumps: number[] = [];
+
+      records.forEach((record: any) => {
+        const a1 = record[attempt1Key];
+        const a2 = record[attempt2Key];
+        const a3 = record[attempt3Key];
+
+        // Calculate first jump (1st→2nd) if both attempts exist
+        if (a1 != null && a2 != null) {
+          const jump = Math.abs(a2) - Math.abs(a1);
+          // Only include reasonable jumps (-20 to 30 kg)
+          if (jump >= -20 && jump <= 30) {
+            firstJumps.push(jump);
+          }
+        }
+
+        // Calculate second jump (2nd→3rd) if both attempts exist
+        if (a2 != null && a3 != null) {
+          const jump = Math.abs(a3) - Math.abs(a2);
+          // Only include reasonable jumps (-20 to 30 kg)
+          if (jump >= -20 && jump <= 30) {
+            secondJumps.push(jump);
+          }
+        }
+      });
+
+      const calcStats = (jumps: number[]) => {
+        if (jumps.length === 0) return null;
+        return {
+          average: jumps.reduce((a, b) => a + b, 0) / jumps.length,
+          min: Math.min(...jumps),
+          max: Math.max(...jumps),
+          count: jumps.length
+        };
+      };
+
+      const first = calcStats(firstJumps);
+      const second = calcStats(secondJumps);
+
+      if (!first && !second) return null;
+
+      return {
+        firstJump: first,
+        secondJump: second
+      };
+    };
+
+    return {
+      squat: calculateJumps('squat1_kg', 'squat2_kg', 'squat3_kg'),
+      bench: calculateJumps('bench1_kg', 'bench2_kg', 'bench3_kg'),
+      deadlift: calculateJumps('deadlift1_kg', 'deadlift2_kg', 'deadlift3_kg')
+    };
+  },
+
+  /**
    * Health check - verify Supabase connection
    */
   async healthCheck(): Promise<{ status: string; service: string }> {

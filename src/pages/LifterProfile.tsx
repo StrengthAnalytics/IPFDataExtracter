@@ -16,6 +16,24 @@ interface OpenerTendencies {
   deadlift: OpenerTendency | null;
 }
 
+interface JumpStats {
+  average: number;
+  min: number;
+  max: number;
+  count: number;
+}
+
+interface LiftJumps {
+  firstJump: JumpStats | null;
+  secondJump: JumpStats | null;
+}
+
+interface JumpPatterns {
+  squat: LiftJumps | null;
+  bench: LiftJumps | null;
+  deadlift: LiftJumps | null;
+}
+
 type CompSortColumn = 'date' | 'meet' | 'federation' | 'squat' | 'bench' | 'deadlift' | 'total' | 'ipfgl' | 'place';
 type SortDirection = 'asc' | 'desc';
 
@@ -32,6 +50,7 @@ export function LifterProfile() {
   const [endDate, setEndDate] = useState<string>('');
   const [bestLifts, setBestLifts] = useState<BestLifts | null>(null);
   const [openerTendencies, setOpenerTendencies] = useState<OpenerTendencies | null>(null);
+  const [jumpPatterns, setJumpPatterns] = useState<JumpPatterns | null>(null);
 
   // Load lifter profile
   useEffect(() => {
@@ -74,6 +93,14 @@ export function LifterProfile() {
     api.getOpenerTendencies(decodeURIComponent(name))
       .then(setOpenerTendencies)
       .catch(err => console.error('Error loading opener tendencies:', err));
+  }, [name]);
+
+  // Load jump patterns
+  useEffect(() => {
+    if (!name) return;
+    api.getJumpPatterns(decodeURIComponent(name))
+      .then(setJumpPatterns)
+      .catch(err => console.error('Error loading jump patterns:', err));
   }, [name]);
 
   if (isLoading) {
@@ -258,12 +285,30 @@ export function LifterProfile() {
           )}
           <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
-          {openerTendencies?.squat && (
-            <div className="mt-2 pt-2 border-t border-gray-700">
-              <div className="text-xs text-gray-400">
-                Opener: <span className="text-green-400 font-medium">{openerTendencies.squat.average.toFixed(0)}%</span>
-                <span className="text-gray-600 ml-1">({openerTendencies.squat.min.toFixed(0)}-{openerTendencies.squat.max.toFixed(0)}%)</span>
-              </div>
+          {(openerTendencies?.squat || jumpPatterns?.squat) && (
+            <div className="mt-2 pt-2 border-t border-gray-700 space-y-1">
+              {openerTendencies?.squat && (
+                <div className="text-xs text-gray-400">
+                  Opener: <span className="text-green-400 font-medium">{openerTendencies.squat.average.toFixed(0)}%</span>
+                  <span className="text-gray-600 ml-1">({openerTendencies.squat.min.toFixed(0)}-{openerTendencies.squat.max.toFixed(0)}%)</span>
+                </div>
+              )}
+              {jumpPatterns?.squat && (
+                <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
+                  {jumpPatterns.squat.firstJump && (
+                    <span>
+                      1st→2nd: <span className="text-green-400 font-medium">+{jumpPatterns.squat.firstJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.squat.firstJump.min}-{jumpPatterns.squat.firstJump.max})</span>
+                    </span>
+                  )}
+                  {jumpPatterns.squat.secondJump && (
+                    <span>
+                      2nd→3rd: <span className="text-green-400 font-medium">+{jumpPatterns.squat.secondJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.squat.secondJump.min}-{jumpPatterns.squat.secondJump.max})</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -279,12 +324,30 @@ export function LifterProfile() {
           )}
           <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
-          {openerTendencies?.bench && (
-            <div className="mt-2 pt-2 border-t border-gray-700">
-              <div className="text-xs text-gray-400">
-                Opener: <span className="text-blue-400 font-medium">{openerTendencies.bench.average.toFixed(0)}%</span>
-                <span className="text-gray-600 ml-1">({openerTendencies.bench.min.toFixed(0)}-{openerTendencies.bench.max.toFixed(0)}%)</span>
-              </div>
+          {(openerTendencies?.bench || jumpPatterns?.bench) && (
+            <div className="mt-2 pt-2 border-t border-gray-700 space-y-1">
+              {openerTendencies?.bench && (
+                <div className="text-xs text-gray-400">
+                  Opener: <span className="text-blue-400 font-medium">{openerTendencies.bench.average.toFixed(0)}%</span>
+                  <span className="text-gray-600 ml-1">({openerTendencies.bench.min.toFixed(0)}-{openerTendencies.bench.max.toFixed(0)}%)</span>
+                </div>
+              )}
+              {jumpPatterns?.bench && (
+                <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
+                  {jumpPatterns.bench.firstJump && (
+                    <span>
+                      1st→2nd: <span className="text-blue-400 font-medium">+{jumpPatterns.bench.firstJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.bench.firstJump.min}-{jumpPatterns.bench.firstJump.max})</span>
+                    </span>
+                  )}
+                  {jumpPatterns.bench.secondJump && (
+                    <span>
+                      2nd→3rd: <span className="text-blue-400 font-medium">+{jumpPatterns.bench.secondJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.bench.secondJump.min}-{jumpPatterns.bench.secondJump.max})</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -300,12 +363,30 @@ export function LifterProfile() {
           )}
           <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
-          {openerTendencies?.deadlift && (
-            <div className="mt-2 pt-2 border-t border-gray-700">
-              <div className="text-xs text-gray-400">
-                Opener: <span className="text-red-400 font-medium">{openerTendencies.deadlift.average.toFixed(0)}%</span>
-                <span className="text-gray-600 ml-1">({openerTendencies.deadlift.min.toFixed(0)}-{openerTendencies.deadlift.max.toFixed(0)}%)</span>
-              </div>
+          {(openerTendencies?.deadlift || jumpPatterns?.deadlift) && (
+            <div className="mt-2 pt-2 border-t border-gray-700 space-y-1">
+              {openerTendencies?.deadlift && (
+                <div className="text-xs text-gray-400">
+                  Opener: <span className="text-red-400 font-medium">{openerTendencies.deadlift.average.toFixed(0)}%</span>
+                  <span className="text-gray-600 ml-1">({openerTendencies.deadlift.min.toFixed(0)}-{openerTendencies.deadlift.max.toFixed(0)}%)</span>
+                </div>
+              )}
+              {jumpPatterns?.deadlift && (
+                <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
+                  {jumpPatterns.deadlift.firstJump && (
+                    <span>
+                      1st→2nd: <span className="text-red-400 font-medium">+{jumpPatterns.deadlift.firstJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.deadlift.firstJump.min}-{jumpPatterns.deadlift.firstJump.max})</span>
+                    </span>
+                  )}
+                  {jumpPatterns.deadlift.secondJump && (
+                    <span>
+                      2nd→3rd: <span className="text-red-400 font-medium">+{jumpPatterns.deadlift.secondJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.deadlift.secondJump.min}-{jumpPatterns.deadlift.secondJump.max})</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
