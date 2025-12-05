@@ -551,6 +551,62 @@ export const api = {
   },
 
   /**
+   * Get opener tendencies for a lifter
+   * Calculates average opener percentages for squat, bench, deadlift
+   */
+  async getOpenerTendencies(name: string): Promise<{
+    squat: { average: number; min: number; max: number; competitions: number } | null;
+    bench: { average: number; min: number; max: number; competitions: number } | null;
+    deadlift: { average: number; min: number; max: number; competitions: number } | null;
+  }> {
+    const { data, error } = await supabase
+      .from('lifter_records')
+      .select('squat1_kg, best3_squat_kg, bench1_kg, best3_bench_kg, deadlift1_kg, best3_deadlift_kg, total_kg')
+      .eq('name', name)
+      .not('total_kg', 'is', null);
+
+    if (error) throw new APIError(500, error.message);
+
+    const records = data || [];
+
+    const calculateTendency = (
+      attempt1Key: 'squat1_kg' | 'bench1_kg' | 'deadlift1_kg',
+      best3Key: 'best3_squat_kg' | 'best3_bench_kg' | 'best3_deadlift_kg'
+    ) => {
+      const percentages: number[] = [];
+
+      records.forEach((record: any) => {
+        const attempt1 = record[attempt1Key];
+        const best3 = record[best3Key];
+
+        // Skip if no data or bombed lift (best3 is null/zero)
+        if (!attempt1 || !best3 || best3 <= 0) return;
+
+        const percentage = (Math.abs(attempt1) / best3) * 100;
+        // Only include reasonable percentages (50-110%)
+        if (percentage >= 50 && percentage <= 110) {
+          percentages.push(percentage);
+        }
+      });
+
+      if (percentages.length === 0) return null;
+
+      return {
+        average: percentages.reduce((a, b) => a + b, 0) / percentages.length,
+        min: Math.min(...percentages),
+        max: Math.max(...percentages),
+        competitions: percentages.length
+      };
+    };
+
+    return {
+      squat: calculateTendency('squat1_kg', 'best3_squat_kg'),
+      bench: calculateTendency('bench1_kg', 'best3_bench_kg'),
+      deadlift: calculateTendency('deadlift1_kg', 'best3_deadlift_kg')
+    };
+  },
+
+  /**
    * Health check - verify Supabase connection
    */
   async healthCheck(): Promise<{ status: string; service: string }> {

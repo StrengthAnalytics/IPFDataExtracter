@@ -1,7 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import type { LifterProfile as LifterProfileType, Competition } from '../types';
+import type { LifterProfile as LifterProfileType, Competition, BestLifts } from '../types';
+
+interface OpenerTendency {
+  average: number;
+  min: number;
+  max: number;
+  competitions: number;
+}
+
+interface OpenerTendencies {
+  squat: OpenerTendency | null;
+  bench: OpenerTendency | null;
+  deadlift: OpenerTendency | null;
+}
 
 type CompSortColumn = 'date' | 'meet' | 'federation' | 'squat' | 'bench' | 'deadlift' | 'total' | 'ipfgl' | 'place';
 type SortDirection = 'asc' | 'desc';
@@ -17,6 +30,8 @@ export function LifterProfile() {
   const [weightClasses, setWeightClasses] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [bestLifts, setBestLifts] = useState<BestLifts | null>(null);
+  const [openerTendencies, setOpenerTendencies] = useState<OpenerTendencies | null>(null);
 
   // Load lifter profile
   useEffect(() => {
@@ -44,6 +59,22 @@ export function LifterProfile() {
       setWeightClasses(allClasses);
     }).catch(err => console.error('Error loading weight classes:', err));
   }, []);
+
+  // Load best lifts with attempts
+  useEffect(() => {
+    if (!name) return;
+    api.getBestLifts(decodeURIComponent(name), 10) // 10 years to get career bests
+      .then(setBestLifts)
+      .catch(err => console.error('Error loading best lifts:', err));
+  }, [name]);
+
+  // Load opener tendencies
+  useEffect(() => {
+    if (!name) return;
+    api.getOpenerTendencies(decodeURIComponent(name))
+      .then(setOpenerTendencies)
+      .catch(err => console.error('Error loading opener tendencies:', err));
+  }, [name]);
 
   if (isLoading) {
     return (
@@ -169,6 +200,49 @@ export function LifterProfile() {
     return <span className="text-primary-500 ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
   };
 
+  // Format attempts - negative values indicate failed attempts
+  const formatAttempt = (weight?: number) => {
+    if (!weight || weight === 0) return null;
+    const absWeight = Math.abs(weight);
+    const failed = weight < 0;
+    return { weight: absWeight, failed };
+  };
+
+  const renderAttempts = (attempt1?: number, attempt2?: number, attempt3?: number, color: string = 'text-gray-300') => {
+    const attempts = [formatAttempt(attempt1), formatAttempt(attempt2), formatAttempt(attempt3)];
+
+    return (
+      <div className="flex gap-1 text-xs mt-1">
+        {attempts.map((attempt, idx) => {
+          if (!attempt) return <span key={idx} className="text-gray-700">-</span>;
+          return (
+            <span
+              key={idx}
+              className={`${attempt.failed ? 'line-through text-red-500/70' : color}`}
+            >
+              {attempt.weight}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const formatOpenerTendency = (tendency: OpenerTendency | null, label: string, color: string) => {
+    if (!tendency) return null;
+    return (
+      <div className="flex justify-between items-center">
+        <span className={color}>{label}</span>
+        <span className="text-white">
+          {tendency.average.toFixed(0)}%
+          <span className="text-gray-500 text-xs ml-1">
+            ({tendency.min.toFixed(0)}-{tendency.max.toFixed(0)}%)
+          </span>
+        </span>
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -191,34 +265,52 @@ export function LifterProfile() {
         <div className="card">
           <div className="text-sm text-gray-400 mb-1">Best Squat</div>
           <div className="text-3xl font-bold text-green-400 mb-1">{formatWeight(profile.best_squat_kg)}</div>
-          <div className="text-xs text-gray-500">{formatDate(profile.best_squat_date)}</div>
+          {bestLifts?.best_squat && renderAttempts(
+            bestLifts.best_squat.squat1_kg,
+            bestLifts.best_squat.squat2_kg,
+            bestLifts.best_squat.squat3_kg,
+            'text-green-400/80'
+          )}
+          <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
         </div>
 
         <div className="card">
           <div className="text-sm text-gray-400 mb-1">Best Bench</div>
           <div className="text-3xl font-bold text-blue-400 mb-1">{formatWeight(profile.best_bench_kg)}</div>
-          <div className="text-xs text-gray-500">{formatDate(profile.best_bench_date)}</div>
+          {bestLifts?.best_bench && renderAttempts(
+            bestLifts.best_bench.bench1_kg,
+            bestLifts.best_bench.bench2_kg,
+            bestLifts.best_bench.bench3_kg,
+            'text-blue-400/80'
+          )}
+          <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
         </div>
 
         <div className="card">
           <div className="text-sm text-gray-400 mb-1">Best Deadlift</div>
           <div className="text-3xl font-bold text-red-400 mb-1">{formatWeight(profile.best_deadlift_kg)}</div>
-          <div className="text-xs text-gray-500">{formatDate(profile.best_deadlift_date)}</div>
+          {bestLifts?.best_deadlift && renderAttempts(
+            bestLifts.best_deadlift.deadlift1_kg,
+            bestLifts.best_deadlift.deadlift2_kg,
+            bestLifts.best_deadlift.deadlift3_kg,
+            'text-red-400/80'
+          )}
+          <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
         </div>
 
         <div className="card">
           <div className="text-sm text-gray-400 mb-1">Best Total</div>
           <div className="text-3xl font-bold text-purple-400 mb-1">{formatWeight(profile.best_total_kg)}</div>
-          <div className="text-xs text-gray-500">{formatDate(profile.best_total_date)}</div>
+          <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
         </div>
       </div>
 
       {/* Additional Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="card">
           <h3 className="text-lg font-semibold text-white mb-3">Weight Classes</h3>
           <div className="flex flex-wrap gap-2">
@@ -247,6 +339,22 @@ export function LifterProfile() {
               <span className="text-gray-500">No data</span>
             )}
           </div>
+        </div>
+
+        <div className="card">
+          <h3 className="text-lg font-semibold text-white mb-3">Opener Tendencies</h3>
+          {openerTendencies && (openerTendencies.squat || openerTendencies.bench || openerTendencies.deadlift) ? (
+            <div className="space-y-2 text-sm">
+              {formatOpenerTendency(openerTendencies.squat, 'Squat', 'text-green-400')}
+              {formatOpenerTendency(openerTendencies.bench, 'Bench', 'text-blue-400')}
+              {formatOpenerTendency(openerTendencies.deadlift, 'Deadlift', 'text-red-400')}
+              <p className="text-xs text-gray-500 mt-2">
+                Average % of best lift used as opener
+              </p>
+            </div>
+          ) : (
+            <span className="text-gray-500">No opener data available</span>
+          )}
         </div>
       </div>
 
