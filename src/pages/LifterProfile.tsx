@@ -228,21 +228,6 @@ export function LifterProfile() {
     );
   };
 
-  const formatOpenerTendency = (tendency: OpenerTendency | null, label: string, color: string) => {
-    if (!tendency) return null;
-    return (
-      <div className="flex justify-between items-center">
-        <span className={color}>{label}</span>
-        <span className="text-white">
-          {tendency.average.toFixed(0)}%
-          <span className="text-gray-500 text-xs ml-1">
-            ({tendency.min.toFixed(0)}-{tendency.max.toFixed(0)}%)
-          </span>
-        </span>
-      </div>
-    );
-  };
-
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -273,6 +258,14 @@ export function LifterProfile() {
           )}
           <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
+          {openerTendencies?.squat && (
+            <div className="mt-2 pt-2 border-t border-gray-700">
+              <div className="text-xs text-gray-400">
+                Opener: <span className="text-green-400 font-medium">{openerTendencies.squat.average.toFixed(0)}%</span>
+                <span className="text-gray-600 ml-1">({openerTendencies.squat.min.toFixed(0)}-{openerTendencies.squat.max.toFixed(0)}%)</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -286,6 +279,14 @@ export function LifterProfile() {
           )}
           <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
+          {openerTendencies?.bench && (
+            <div className="mt-2 pt-2 border-t border-gray-700">
+              <div className="text-xs text-gray-400">
+                Opener: <span className="text-blue-400 font-medium">{openerTendencies.bench.average.toFixed(0)}%</span>
+                <span className="text-gray-600 ml-1">({openerTendencies.bench.min.toFixed(0)}-{openerTendencies.bench.max.toFixed(0)}%)</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -299,6 +300,14 @@ export function LifterProfile() {
           )}
           <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
+          {openerTendencies?.deadlift && (
+            <div className="mt-2 pt-2 border-t border-gray-700">
+              <div className="text-xs text-gray-400">
+                Opener: <span className="text-red-400 font-medium">{openerTendencies.deadlift.average.toFixed(0)}%</span>
+                <span className="text-gray-600 ml-1">({openerTendencies.deadlift.min.toFixed(0)}-{openerTendencies.deadlift.max.toFixed(0)}%)</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -310,7 +319,7 @@ export function LifterProfile() {
       </div>
 
       {/* Additional Info */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="card">
           <h3 className="text-lg font-semibold text-white mb-3">Weight Classes</h3>
           <div className="flex flex-wrap gap-2">
@@ -339,22 +348,6 @@ export function LifterProfile() {
               <span className="text-gray-500">No data</span>
             )}
           </div>
-        </div>
-
-        <div className="card">
-          <h3 className="text-lg font-semibold text-white mb-3">Opener Tendencies</h3>
-          {openerTendencies && (openerTendencies.squat || openerTendencies.bench || openerTendencies.deadlift) ? (
-            <div className="space-y-2 text-sm">
-              {formatOpenerTendency(openerTendencies.squat, 'Squat', 'text-green-400')}
-              {formatOpenerTendency(openerTendencies.bench, 'Bench', 'text-blue-400')}
-              {formatOpenerTendency(openerTendencies.deadlift, 'Deadlift', 'text-red-400')}
-              <p className="text-xs text-gray-500 mt-2">
-                Average % of best lift used as opener
-              </p>
-            </div>
-          ) : (
-            <span className="text-gray-500">No opener data available</span>
-          )}
         </div>
       </div>
 
