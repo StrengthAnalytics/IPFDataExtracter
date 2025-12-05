@@ -34,6 +34,24 @@ interface JumpPatterns {
   deadlift: LiftJumps | null;
 }
 
+interface AttemptRate {
+  rate: number;
+  made: number;
+  total: number;
+}
+
+interface LiftSuccessRates {
+  attempt1: AttemptRate | null;
+  attempt2: AttemptRate | null;
+  attempt3: AttemptRate | null;
+}
+
+interface SuccessRates {
+  squat: LiftSuccessRates | null;
+  bench: LiftSuccessRates | null;
+  deadlift: LiftSuccessRates | null;
+}
+
 type CompSortColumn = 'date' | 'meet' | 'federation' | 'squat' | 'bench' | 'deadlift' | 'total' | 'ipfgl' | 'place';
 type SortDirection = 'asc' | 'desc';
 
@@ -51,6 +69,7 @@ export function LifterProfile() {
   const [bestLifts, setBestLifts] = useState<BestLifts | null>(null);
   const [openerTendencies, setOpenerTendencies] = useState<OpenerTendencies | null>(null);
   const [jumpPatterns, setJumpPatterns] = useState<JumpPatterns | null>(null);
+  const [successRates, setSuccessRates] = useState<SuccessRates | null>(null);
 
   // Load lifter profile
   useEffect(() => {
@@ -101,6 +120,14 @@ export function LifterProfile() {
     api.getJumpPatterns(decodeURIComponent(name))
       .then(setJumpPatterns)
       .catch(err => console.error('Error loading jump patterns:', err));
+  }, [name]);
+
+  // Load attempt success rates
+  useEffect(() => {
+    if (!name) return;
+    api.getAttemptSuccessRates(decodeURIComponent(name))
+      .then(setSuccessRates)
+      .catch(err => console.error('Error loading success rates:', err));
   }, [name]);
 
   if (isLoading) {
@@ -255,6 +282,41 @@ export function LifterProfile() {
     );
   };
 
+  // Get color class based on success rate
+  const getRateColor = (rate: number) => {
+    if (rate >= 80) return 'text-green-400';
+    if (rate >= 60) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  // Render success rates for a lift
+  const renderSuccessRates = (liftRates: LiftSuccessRates | null | undefined) => {
+    if (!liftRates) return null;
+    const { attempt1, attempt2, attempt3 } = liftRates;
+    if (!attempt1 && !attempt2 && !attempt3) return null;
+
+    return (
+      <div className="text-xs">
+        <div className="text-gray-500 mb-1">Make Rate:</div>
+        <div className="grid grid-cols-3 gap-1 text-center">
+          {[attempt1, attempt2, attempt3].map((att, idx) => (
+            <div key={idx} className="bg-gray-800 rounded px-1 py-0.5">
+              <div className="text-gray-500 text-[10px]">{idx + 1}{idx === 0 ? 'st' : idx === 1 ? 'nd' : 'rd'}</div>
+              {att ? (
+                <>
+                  <div className={`font-medium ${getRateColor(att.rate)}`}>{att.rate.toFixed(0)}%</div>
+                  <div className="text-gray-600 text-[10px]">{att.made}/{att.total}</div>
+                </>
+              ) : (
+                <div className="text-gray-700">-</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -285,8 +347,8 @@ export function LifterProfile() {
           )}
           <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
-          {(openerTendencies?.squat || jumpPatterns?.squat) && (
-            <div className="mt-2 pt-2 border-t border-gray-700 space-y-1">
+          {(openerTendencies?.squat || jumpPatterns?.squat || successRates?.squat) && (
+            <div className="mt-2 pt-2 border-t border-gray-700 space-y-2">
               {openerTendencies?.squat && (
                 <div className="text-xs text-gray-400">
                   Opener: <span className="text-green-400 font-medium">{openerTendencies.squat.average.toFixed(0)}%</span>
@@ -309,6 +371,7 @@ export function LifterProfile() {
                   )}
                 </div>
               )}
+              {renderSuccessRates(successRates?.squat)}
             </div>
           )}
         </div>
@@ -324,8 +387,8 @@ export function LifterProfile() {
           )}
           <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
-          {(openerTendencies?.bench || jumpPatterns?.bench) && (
-            <div className="mt-2 pt-2 border-t border-gray-700 space-y-1">
+          {(openerTendencies?.bench || jumpPatterns?.bench || successRates?.bench) && (
+            <div className="mt-2 pt-2 border-t border-gray-700 space-y-2">
               {openerTendencies?.bench && (
                 <div className="text-xs text-gray-400">
                   Opener: <span className="text-blue-400 font-medium">{openerTendencies.bench.average.toFixed(0)}%</span>
@@ -348,6 +411,7 @@ export function LifterProfile() {
                   )}
                 </div>
               )}
+              {renderSuccessRates(successRates?.bench)}
             </div>
           )}
         </div>
@@ -363,8 +427,8 @@ export function LifterProfile() {
           )}
           <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
-          {(openerTendencies?.deadlift || jumpPatterns?.deadlift) && (
-            <div className="mt-2 pt-2 border-t border-gray-700 space-y-1">
+          {(openerTendencies?.deadlift || jumpPatterns?.deadlift || successRates?.deadlift) && (
+            <div className="mt-2 pt-2 border-t border-gray-700 space-y-2">
               {openerTendencies?.deadlift && (
                 <div className="text-xs text-gray-400">
                   Opener: <span className="text-red-400 font-medium">{openerTendencies.deadlift.average.toFixed(0)}%</span>
@@ -387,6 +451,7 @@ export function LifterProfile() {
                   )}
                 </div>
               )}
+              {renderSuccessRates(successRates?.deadlift)}
             </div>
           )}
         </div>

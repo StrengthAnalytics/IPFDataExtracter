@@ -686,6 +686,70 @@ export const api = {
   },
 
   /**
+   * Get attempt success rates for a lifter
+   * Calculates make/miss rates for each attempt number (1st, 2nd, 3rd) per lift
+   */
+  async getAttemptSuccessRates(name: string): Promise<{
+    squat: { attempt1: { rate: number; made: number; total: number } | null; attempt2: { rate: number; made: number; total: number } | null; attempt3: { rate: number; made: number; total: number } | null } | null;
+    bench: { attempt1: { rate: number; made: number; total: number } | null; attempt2: { rate: number; made: number; total: number } | null; attempt3: { rate: number; made: number; total: number } | null } | null;
+    deadlift: { attempt1: { rate: number; made: number; total: number } | null; attempt2: { rate: number; made: number; total: number } | null; attempt3: { rate: number; made: number; total: number } | null } | null;
+  }> {
+    const { data, error } = await supabase
+      .from('lifter_records')
+      .select('squat1_kg, squat2_kg, squat3_kg, bench1_kg, bench2_kg, bench3_kg, deadlift1_kg, deadlift2_kg, deadlift3_kg')
+      .eq('name', name);
+
+    if (error) throw new APIError(500, error.message);
+
+    const records = data || [];
+
+    const calculateAttemptRate = (attemptKey: string) => {
+      let total = 0;
+      let made = 0;
+
+      records.forEach((record: any) => {
+        const value = record[attemptKey];
+        // Only count if attempt was taken (not null and not 0)
+        if (value != null && value !== 0) {
+          total++;
+          // Positive = successful, negative = failed
+          if (value > 0) {
+            made++;
+          }
+        }
+      });
+
+      if (total === 0) return null;
+
+      return {
+        rate: (made / total) * 100,
+        made,
+        total
+      };
+    };
+
+    const calculateLiftRates = (lift: 'squat' | 'bench' | 'deadlift') => {
+      const a1 = calculateAttemptRate(`${lift}1_kg`);
+      const a2 = calculateAttemptRate(`${lift}2_kg`);
+      const a3 = calculateAttemptRate(`${lift}3_kg`);
+
+      if (!a1 && !a2 && !a3) return null;
+
+      return {
+        attempt1: a1,
+        attempt2: a2,
+        attempt3: a3
+      };
+    };
+
+    return {
+      squat: calculateLiftRates('squat'),
+      bench: calculateLiftRates('bench'),
+      deadlift: calculateLiftRates('deadlift')
+    };
+  },
+
+  /**
    * Health check - verify Supabase connection
    */
   async healthCheck(): Promise<{ status: string; service: string }> {
