@@ -9,6 +9,10 @@ A modern powerlifting scouting and analysis platform built with React, TypeScrip
 ### 🔍 Lifter Search
 Fast, fuzzy search across 40,000+ powerlifters with autocomplete. Search by name with typo tolerance and instantly view competition history, best lifts, and performance trends.
 
+- **Weight Class Filter**: Filter search results by weight class on the homepage
+- **Fuzzy Search Toggle**: Enable typo-tolerant search for misspelled names
+- **Rich Autocomplete**: Shows country, competition count, and last competition date
+
 ### 🏋️ Advanced Scouting & Comparison
 Compare up to 10 lifters side-by-side with powerful analytics:
 
@@ -98,12 +102,26 @@ Discover benchmarks for your weight class:
 - View maximum recorded lifts
 
 ### 👤 Lifter Profiles
-Complete athlete profiles including:
+Complete athlete profiles with advanced analytics:
+
+**Career Bests:**
+- Best squat, bench, deadlift, and total with dates and meet names
+- **Attempt Breakdown**: All 3 attempts from best performance day with failed lifts marked (strikethrough)
+
+**Competition Analytics:**
+- **Opener Tendencies**: Average opener percentage for each lift with min/max range
+  - Example: "Opener: 92% (89-95%)" - shows consistency in attempt selection
+- **Jump Patterns**: Average weight increase between attempts
+  - 1st→2nd jump and 2nd→3rd jump statistics with ranges
+- **Make/Miss Rates**: Success rate for each attempt number (1st, 2nd, 3rd)
+  - Color-coded: green (≥80%), yellow (60-79%), red (<60%)
+  - Shows made/total count (e.g., "24/25")
+
+**Additional Info:**
 - Competition history with placement and federation
-- Career best lifts with dates and meet names
 - Weight class progression
 - Equipment types competed in
-- Country and biographical data
+- Sortable/filterable competition table
 
 ## Tech Stack
 
@@ -548,6 +566,18 @@ For issues, questions, or feature requests:
 ## Recent Updates
 
 **Latest Features (December 2024):**
+
+**Lifter Profile Analytics:**
+- ✅ **Attempt Breakdown** - Shows all 3 attempts from best performance with failed lifts struck through
+- ✅ **Opener Tendencies** - Average opener % for each lift with consistency range (min-max)
+- ✅ **Jump Patterns** - Average weight jumps between attempts (1st→2nd, 2nd→3rd)
+- ✅ **Make/Miss Rates** - Success rate per attempt number with color-coded display (green/yellow/red)
+
+**Search & Navigation:**
+- ✅ **Weight Class Filter** - Filter lifter search by weight class on homepage
+- ✅ **Scout UI Cleanup** - Removed separator between search and filter sections
+
+**Previous Features:**
 - ✅ **Scout UI Cleanup** - Streamlined comparison interface with centralized controls
 - ✅ **Always-On Predictions** - Automatic performance forecasting for all comparisons
 - ✅ **Enhanced Tiles View** - Side-by-side total and prediction display with full attempt data

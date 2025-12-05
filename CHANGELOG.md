@@ -4,6 +4,69 @@ All notable features and improvements to IPF Data Extracter.
 
 > **Note**: When adding new features, update this file with implementation details to help future development.
 
+## [1.2.0] - December 2024
+
+### 📊 Lifter Profile Analytics & Search Enhancements
+
+Major update adding comprehensive competition analytics to lifter profiles and improved search functionality.
+
+**Files Modified:**
+- `src/pages/LifterProfile.tsx` - Added analytics display
+- `src/pages/Home.tsx` - Added weight class filter
+- `src/pages/Scout.tsx` - Removed separator line
+- `src/services/supabaseApi.ts` - Added 3 new API methods
+
+**New Features:**
+
+#### 1. Attempt Breakdown on Best Lifts
+Each best lift card (Squat, Bench, Deadlift) now shows all 3 attempts from that performance:
+- Successful attempts in lift color
+- Failed attempts with strikethrough in red
+- Matches Scout page attempt display style
+
+#### 2. Opener Tendencies
+Analyzes how conservatively/aggressively a lifter opens:
+- Calculates `opener_percentage = (attempt1 / best3_lift) × 100`
+- Shows average with min-max range: "Opener: 92% (89-95%)"
+- Displayed in each lift card
+- Only includes competitions where lifter completed the lift
+
+#### 3. Jump Patterns
+Analyzes weight increases between attempts:
+- 1st→2nd jump: `abs(attempt2) - abs(attempt1)`
+- 2nd→3rd jump: `abs(attempt3) - abs(attempt2)`
+- Shows average with min-max range for each
+- Handles failed attempts correctly (uses absolute values)
+
+#### 4. Make/Miss Rates by Attempt
+Success rate analysis for each attempt number:
+- 3-column grid showing 1st, 2nd, 3rd attempt success rates
+- Color-coded: green (≥80%), yellow (60-79%), red (<60%)
+- Shows percentage with made/total count (e.g., "96%" with "24/25")
+- Identifies weak points in attempt strategy
+
+#### 5. Homepage Weight Class Filter
+- Dropdown filter next to search input
+- Filters search results by weight class
+- Responsive: stacks below search on mobile, side-by-side on desktop
+
+#### 6. Scout Page UI Cleanup
+- Removed separator line between search and filter sections
+- Cleaner visual flow
+
+**New API Methods:**
+- `getOpenerTendencies(name)` - Returns opener % stats for each lift
+- `getJumpPatterns(name)` - Returns jump statistics for each lift
+- `getAttemptSuccessRates(name)` - Returns make/miss rates for each attempt
+
+**Technical Details:**
+- All analytics calculated from `lifter_records` table
+- Handles negative values (failed attempts) correctly
+- Filters outliers (unreasonable percentages/jumps)
+- Efficient single-query approach for each metric
+
+---
+
 ## [1.1.0] - December 2024
 
 ### 🎨 Scout UI Cleanup & Enhancement
@@ -205,6 +268,11 @@ const { data, error } = await supabase.rpc('search_lifters_by_similarity', {
 
 - Complete competition history (last 20 meets)
 - Personal bests with dates and meet names
+- **Attempt breakdown** for each best lift (showing all 3 attempts)
+- **Competition analytics** (v1.2.0):
+  - Opener tendencies with percentage ranges
+  - Jump patterns (1st→2nd, 2nd→3rd)
+  - Make/miss rates by attempt number (color-coded)
 - Dynamic filtering (client-side, instant):
   - Weight class filter
   - Date range (start/end dates)
@@ -216,9 +284,11 @@ const { data, error } = await supabase.rpc('search_lifters_by_similarity', {
 - Weight classes and equipment types competed
 
 **API:**
-- `getLifterProfile(name)`
-- Returns summary + last 20 competitions
-- Fetches from both `lifter_summary` and `lifter_records`
+- `getLifterProfile(name)` - Returns summary + last 20 competitions
+- `getBestLifts(name, years)` - Returns best lifts with attempt data
+- `getOpenerTendencies(name)` - Returns opener % stats (v1.2.0)
+- `getJumpPatterns(name)` - Returns jump statistics (v1.2.0)
+- `getAttemptSuccessRates(name)` - Returns make/miss rates (v1.2.0)
 
 **Filtering Strategy:**
 - Client-side filtering for instant feedback
@@ -516,6 +586,18 @@ Brief description of what this feature does.
 ---
 
 ## Version History
+
+### [1.2.0] - December 2024
+- Lifter profile analytics (opener tendencies, jump patterns, make/miss rates)
+- Attempt breakdown on best lifts
+- Homepage weight class filter
+- Scout page UI cleanup
+
+### [1.1.0] - December 2024
+- Scout UI redesign
+- Always-on predictions
+- Enhanced tiles view
+- Responsive toggle controls
 
 ### [1.0.0] - December 2024
 - Initial release

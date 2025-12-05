@@ -9,9 +9,21 @@ export function Home() {
   const [stats, setStats] = useState<{ total_records: number; unique_lifters: number; latest_competition: string } | null>(null);
   const [useFuzzySearch, setUseFuzzySearch] = useState(false);
   const [showFuzzyInfo, setShowFuzzyInfo] = useState(false);
+  const [weightClass, setWeightClass] = useState('');
+  const [weightClasses, setWeightClasses] = useState<string[]>([]);
 
   useEffect(() => {
     api.getStats().then(setStats).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    api.getWeightClasses().then((data) => {
+      const allClasses = [
+        ...(data.M || []),
+        ...(data.F || [])
+      ].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => parseFloat(a) - parseFloat(b));
+      setWeightClasses(allClasses);
+    }).catch(err => console.error('Error loading weight classes:', err));
   }, []);
 
   const handleSelectLifter = (lifter: LifterSearchResult) => {
@@ -73,11 +85,26 @@ export function Home() {
                 </div>
               </div>
             </div>
-            <LifterSearch
-              onSelectLifter={handleSelectLifter}
-              autoFocus
-              useFuzzySearch={useFuzzySearch}
-            />
+            <div className="flex flex-col md:flex-row gap-3 mb-4">
+              <div className="flex-1">
+                <LifterSearch
+                  onSelectLifter={handleSelectLifter}
+                  autoFocus
+                  useFuzzySearch={useFuzzySearch}
+                  weightClass={weightClass || undefined}
+                />
+              </div>
+              <select
+                className="input w-full md:w-40"
+                value={weightClass}
+                onChange={(e) => setWeightClass(e.target.value)}
+              >
+                <option value="">All classes</option>
+                {weightClasses.map((wc) => (
+                  <option key={wc} value={wc}>{wc} kg</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 

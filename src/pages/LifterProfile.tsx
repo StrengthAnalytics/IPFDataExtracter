@@ -1,7 +1,56 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import type { LifterProfile as LifterProfileType, Competition } from '../types';
+import type { LifterProfile as LifterProfileType, Competition, BestLifts } from '../types';
+
+interface OpenerTendency {
+  average: number;
+  min: number;
+  max: number;
+  competitions: number;
+}
+
+interface OpenerTendencies {
+  squat: OpenerTendency | null;
+  bench: OpenerTendency | null;
+  deadlift: OpenerTendency | null;
+}
+
+interface JumpStats {
+  average: number;
+  min: number;
+  max: number;
+  count: number;
+}
+
+interface LiftJumps {
+  firstJump: JumpStats | null;
+  secondJump: JumpStats | null;
+}
+
+interface JumpPatterns {
+  squat: LiftJumps | null;
+  bench: LiftJumps | null;
+  deadlift: LiftJumps | null;
+}
+
+interface AttemptRate {
+  rate: number;
+  made: number;
+  total: number;
+}
+
+interface LiftSuccessRates {
+  attempt1: AttemptRate | null;
+  attempt2: AttemptRate | null;
+  attempt3: AttemptRate | null;
+}
+
+interface SuccessRates {
+  squat: LiftSuccessRates | null;
+  bench: LiftSuccessRates | null;
+  deadlift: LiftSuccessRates | null;
+}
 
 type CompSortColumn = 'date' | 'meet' | 'federation' | 'squat' | 'bench' | 'deadlift' | 'total' | 'ipfgl' | 'place';
 type SortDirection = 'asc' | 'desc';
@@ -17,6 +66,10 @@ export function LifterProfile() {
   const [weightClasses, setWeightClasses] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [bestLifts, setBestLifts] = useState<BestLifts | null>(null);
+  const [openerTendencies, setOpenerTendencies] = useState<OpenerTendencies | null>(null);
+  const [jumpPatterns, setJumpPatterns] = useState<JumpPatterns | null>(null);
+  const [successRates, setSuccessRates] = useState<SuccessRates | null>(null);
 
   // Load lifter profile
   useEffect(() => {
@@ -44,6 +97,38 @@ export function LifterProfile() {
       setWeightClasses(allClasses);
     }).catch(err => console.error('Error loading weight classes:', err));
   }, []);
+
+  // Load best lifts with attempts
+  useEffect(() => {
+    if (!name) return;
+    api.getBestLifts(decodeURIComponent(name), 10) // 10 years to get career bests
+      .then(setBestLifts)
+      .catch(err => console.error('Error loading best lifts:', err));
+  }, [name]);
+
+  // Load opener tendencies
+  useEffect(() => {
+    if (!name) return;
+    api.getOpenerTendencies(decodeURIComponent(name))
+      .then(setOpenerTendencies)
+      .catch(err => console.error('Error loading opener tendencies:', err));
+  }, [name]);
+
+  // Load jump patterns
+  useEffect(() => {
+    if (!name) return;
+    api.getJumpPatterns(decodeURIComponent(name))
+      .then(setJumpPatterns)
+      .catch(err => console.error('Error loading jump patterns:', err));
+  }, [name]);
+
+  // Load attempt success rates
+  useEffect(() => {
+    if (!name) return;
+    api.getAttemptSuccessRates(decodeURIComponent(name))
+      .then(setSuccessRates)
+      .catch(err => console.error('Error loading success rates:', err));
+  }, [name]);
 
   if (isLoading) {
     return (
@@ -169,6 +254,69 @@ export function LifterProfile() {
     return <span className="text-primary-500 ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
   };
 
+  // Format attempts - negative values indicate failed attempts
+  const formatAttempt = (weight?: number) => {
+    if (!weight || weight === 0) return null;
+    const absWeight = Math.abs(weight);
+    const failed = weight < 0;
+    return { weight: absWeight, failed };
+  };
+
+  const renderAttempts = (attempt1?: number, attempt2?: number, attempt3?: number, color: string = 'text-gray-300') => {
+    const attempts = [formatAttempt(attempt1), formatAttempt(attempt2), formatAttempt(attempt3)];
+
+    return (
+      <div className="flex gap-1 text-xs mt-1">
+        {attempts.map((attempt, idx) => {
+          if (!attempt) return <span key={idx} className="text-gray-700">-</span>;
+          return (
+            <span
+              key={idx}
+              className={`${attempt.failed ? 'line-through text-red-500/70' : color}`}
+            >
+              {attempt.weight}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Get color class based on success rate
+  const getRateColor = (rate: number) => {
+    if (rate >= 80) return 'text-green-400';
+    if (rate >= 60) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  // Render success rates for a lift
+  const renderSuccessRates = (liftRates: LiftSuccessRates | null | undefined) => {
+    if (!liftRates) return null;
+    const { attempt1, attempt2, attempt3 } = liftRates;
+    if (!attempt1 && !attempt2 && !attempt3) return null;
+
+    return (
+      <div className="text-xs">
+        <div className="text-gray-500 mb-1">Make Rate:</div>
+        <div className="grid grid-cols-3 gap-1 text-center">
+          {[attempt1, attempt2, attempt3].map((att, idx) => (
+            <div key={idx} className="bg-gray-800 rounded px-1 py-0.5">
+              <div className="text-gray-500 text-[10px]">{idx + 1}{idx === 0 ? 'st' : idx === 1 ? 'nd' : 'rd'}</div>
+              {att ? (
+                <>
+                  <div className={`font-medium ${getRateColor(att.rate)}`}>{att.rate.toFixed(0)}%</div>
+                  <div className="text-gray-600 text-[10px]">{att.made}/{att.total}</div>
+                </>
+              ) : (
+                <div className="text-gray-700">-</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
@@ -191,28 +339,127 @@ export function LifterProfile() {
         <div className="card">
           <div className="text-sm text-gray-400 mb-1">Best Squat</div>
           <div className="text-3xl font-bold text-green-400 mb-1">{formatWeight(profile.best_squat_kg)}</div>
-          <div className="text-xs text-gray-500">{formatDate(profile.best_squat_date)}</div>
+          {bestLifts?.best_squat && renderAttempts(
+            bestLifts.best_squat.squat1_kg,
+            bestLifts.best_squat.squat2_kg,
+            bestLifts.best_squat.squat3_kg,
+            'text-green-400/80'
+          )}
+          <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
+          {(openerTendencies?.squat || jumpPatterns?.squat || successRates?.squat) && (
+            <div className="mt-2 pt-2 border-t border-gray-700 space-y-2">
+              {openerTendencies?.squat && (
+                <div className="text-xs text-gray-400">
+                  Opener: <span className="text-green-400 font-medium">{openerTendencies.squat.average.toFixed(0)}%</span>
+                  <span className="text-gray-600 ml-1">({openerTendencies.squat.min.toFixed(0)}-{openerTendencies.squat.max.toFixed(0)}%)</span>
+                </div>
+              )}
+              {jumpPatterns?.squat && (
+                <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
+                  {jumpPatterns.squat.firstJump && (
+                    <span>
+                      1st→2nd: <span className="text-green-400 font-medium">+{jumpPatterns.squat.firstJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.squat.firstJump.min}-{jumpPatterns.squat.firstJump.max})</span>
+                    </span>
+                  )}
+                  {jumpPatterns.squat.secondJump && (
+                    <span>
+                      2nd→3rd: <span className="text-green-400 font-medium">+{jumpPatterns.squat.secondJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.squat.secondJump.min}-{jumpPatterns.squat.secondJump.max})</span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {renderSuccessRates(successRates?.squat)}
+            </div>
+          )}
         </div>
 
         <div className="card">
           <div className="text-sm text-gray-400 mb-1">Best Bench</div>
           <div className="text-3xl font-bold text-blue-400 mb-1">{formatWeight(profile.best_bench_kg)}</div>
-          <div className="text-xs text-gray-500">{formatDate(profile.best_bench_date)}</div>
+          {bestLifts?.best_bench && renderAttempts(
+            bestLifts.best_bench.bench1_kg,
+            bestLifts.best_bench.bench2_kg,
+            bestLifts.best_bench.bench3_kg,
+            'text-blue-400/80'
+          )}
+          <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
+          {(openerTendencies?.bench || jumpPatterns?.bench || successRates?.bench) && (
+            <div className="mt-2 pt-2 border-t border-gray-700 space-y-2">
+              {openerTendencies?.bench && (
+                <div className="text-xs text-gray-400">
+                  Opener: <span className="text-blue-400 font-medium">{openerTendencies.bench.average.toFixed(0)}%</span>
+                  <span className="text-gray-600 ml-1">({openerTendencies.bench.min.toFixed(0)}-{openerTendencies.bench.max.toFixed(0)}%)</span>
+                </div>
+              )}
+              {jumpPatterns?.bench && (
+                <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
+                  {jumpPatterns.bench.firstJump && (
+                    <span>
+                      1st→2nd: <span className="text-blue-400 font-medium">+{jumpPatterns.bench.firstJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.bench.firstJump.min}-{jumpPatterns.bench.firstJump.max})</span>
+                    </span>
+                  )}
+                  {jumpPatterns.bench.secondJump && (
+                    <span>
+                      2nd→3rd: <span className="text-blue-400 font-medium">+{jumpPatterns.bench.secondJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.bench.secondJump.min}-{jumpPatterns.bench.secondJump.max})</span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {renderSuccessRates(successRates?.bench)}
+            </div>
+          )}
         </div>
 
         <div className="card">
           <div className="text-sm text-gray-400 mb-1">Best Deadlift</div>
           <div className="text-3xl font-bold text-red-400 mb-1">{formatWeight(profile.best_deadlift_kg)}</div>
-          <div className="text-xs text-gray-500">{formatDate(profile.best_deadlift_date)}</div>
+          {bestLifts?.best_deadlift && renderAttempts(
+            bestLifts.best_deadlift.deadlift1_kg,
+            bestLifts.best_deadlift.deadlift2_kg,
+            bestLifts.best_deadlift.deadlift3_kg,
+            'text-red-400/80'
+          )}
+          <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
+          {(openerTendencies?.deadlift || jumpPatterns?.deadlift || successRates?.deadlift) && (
+            <div className="mt-2 pt-2 border-t border-gray-700 space-y-2">
+              {openerTendencies?.deadlift && (
+                <div className="text-xs text-gray-400">
+                  Opener: <span className="text-red-400 font-medium">{openerTendencies.deadlift.average.toFixed(0)}%</span>
+                  <span className="text-gray-600 ml-1">({openerTendencies.deadlift.min.toFixed(0)}-{openerTendencies.deadlift.max.toFixed(0)}%)</span>
+                </div>
+              )}
+              {jumpPatterns?.deadlift && (
+                <div className="text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1">
+                  {jumpPatterns.deadlift.firstJump && (
+                    <span>
+                      1st→2nd: <span className="text-red-400 font-medium">+{jumpPatterns.deadlift.firstJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.deadlift.firstJump.min}-{jumpPatterns.deadlift.firstJump.max})</span>
+                    </span>
+                  )}
+                  {jumpPatterns.deadlift.secondJump && (
+                    <span>
+                      2nd→3rd: <span className="text-red-400 font-medium">+{jumpPatterns.deadlift.secondJump.average.toFixed(1)}</span>
+                      <span className="text-gray-600 ml-0.5">({jumpPatterns.deadlift.secondJump.min}-{jumpPatterns.deadlift.secondJump.max})</span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {renderSuccessRates(successRates?.deadlift)}
+            </div>
+          )}
         </div>
 
         <div className="card">
           <div className="text-sm text-gray-400 mb-1">Best Total</div>
           <div className="text-3xl font-bold text-purple-400 mb-1">{formatWeight(profile.best_total_kg)}</div>
-          <div className="text-xs text-gray-500">{formatDate(profile.best_total_date)}</div>
+          <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
           <div className="text-xs text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
         </div>
       </div>

@@ -551,6 +551,205 @@ export const api = {
   },
 
   /**
+   * Get opener tendencies for a lifter
+   * Calculates average opener percentages for squat, bench, deadlift
+   */
+  async getOpenerTendencies(name: string): Promise<{
+    squat: { average: number; min: number; max: number; competitions: number } | null;
+    bench: { average: number; min: number; max: number; competitions: number } | null;
+    deadlift: { average: number; min: number; max: number; competitions: number } | null;
+  }> {
+    const { data, error } = await supabase
+      .from('lifter_records')
+      .select('squat1_kg, best3_squat_kg, bench1_kg, best3_bench_kg, deadlift1_kg, best3_deadlift_kg, total_kg')
+      .eq('name', name)
+      .not('total_kg', 'is', null);
+
+    if (error) throw new APIError(500, error.message);
+
+    const records = data || [];
+
+    const calculateTendency = (
+      attempt1Key: 'squat1_kg' | 'bench1_kg' | 'deadlift1_kg',
+      best3Key: 'best3_squat_kg' | 'best3_bench_kg' | 'best3_deadlift_kg'
+    ) => {
+      const percentages: number[] = [];
+
+      records.forEach((record: any) => {
+        const attempt1 = record[attempt1Key];
+        const best3 = record[best3Key];
+
+        // Skip if no data or bombed lift (best3 is null/zero)
+        if (!attempt1 || !best3 || best3 <= 0) return;
+
+        const percentage = (Math.abs(attempt1) / best3) * 100;
+        // Only include reasonable percentages (50-110%)
+        if (percentage >= 50 && percentage <= 110) {
+          percentages.push(percentage);
+        }
+      });
+
+      if (percentages.length === 0) return null;
+
+      return {
+        average: percentages.reduce((a, b) => a + b, 0) / percentages.length,
+        min: Math.min(...percentages),
+        max: Math.max(...percentages),
+        competitions: percentages.length
+      };
+    };
+
+    return {
+      squat: calculateTendency('squat1_kg', 'best3_squat_kg'),
+      bench: calculateTendency('bench1_kg', 'best3_bench_kg'),
+      deadlift: calculateTendency('deadlift1_kg', 'best3_deadlift_kg')
+    };
+  },
+
+  /**
+   * Get jump patterns for a lifter
+   * Calculates average weight jumps between attempts for each lift
+   */
+  async getJumpPatterns(name: string): Promise<{
+    squat: { firstJump: { average: number; min: number; max: number; count: number } | null; secondJump: { average: number; min: number; max: number; count: number } | null } | null;
+    bench: { firstJump: { average: number; min: number; max: number; count: number } | null; secondJump: { average: number; min: number; max: number; count: number } | null } | null;
+    deadlift: { firstJump: { average: number; min: number; max: number; count: number } | null; secondJump: { average: number; min: number; max: number; count: number } | null } | null;
+  }> {
+    const { data, error } = await supabase
+      .from('lifter_records')
+      .select('date, squat1_kg, squat2_kg, squat3_kg, bench1_kg, bench2_kg, bench3_kg, deadlift1_kg, deadlift2_kg, deadlift3_kg')
+      .eq('name', name)
+      .order('date', { ascending: false });
+
+    if (error) throw new APIError(500, error.message);
+
+    const records = data || [];
+
+    const calculateJumps = (
+      attempt1Key: string,
+      attempt2Key: string,
+      attempt3Key: string
+    ) => {
+      const firstJumps: number[] = [];
+      const secondJumps: number[] = [];
+
+      records.forEach((record: any) => {
+        const a1 = record[attempt1Key];
+        const a2 = record[attempt2Key];
+        const a3 = record[attempt3Key];
+
+        // Calculate first jump (1st→2nd) if both attempts exist
+        if (a1 != null && a2 != null) {
+          const jump = Math.abs(a2) - Math.abs(a1);
+          // Only include reasonable jumps (-20 to 30 kg)
+          if (jump >= -20 && jump <= 30) {
+            firstJumps.push(jump);
+          }
+        }
+
+        // Calculate second jump (2nd→3rd) if both attempts exist
+        if (a2 != null && a3 != null) {
+          const jump = Math.abs(a3) - Math.abs(a2);
+          // Only include reasonable jumps (-20 to 30 kg)
+          if (jump >= -20 && jump <= 30) {
+            secondJumps.push(jump);
+          }
+        }
+      });
+
+      const calcStats = (jumps: number[]) => {
+        if (jumps.length === 0) return null;
+        return {
+          average: jumps.reduce((a, b) => a + b, 0) / jumps.length,
+          min: Math.min(...jumps),
+          max: Math.max(...jumps),
+          count: jumps.length
+        };
+      };
+
+      const first = calcStats(firstJumps);
+      const second = calcStats(secondJumps);
+
+      if (!first && !second) return null;
+
+      return {
+        firstJump: first,
+        secondJump: second
+      };
+    };
+
+    return {
+      squat: calculateJumps('squat1_kg', 'squat2_kg', 'squat3_kg'),
+      bench: calculateJumps('bench1_kg', 'bench2_kg', 'bench3_kg'),
+      deadlift: calculateJumps('deadlift1_kg', 'deadlift2_kg', 'deadlift3_kg')
+    };
+  },
+
+  /**
+   * Get attempt success rates for a lifter
+   * Calculates make/miss rates for each attempt number (1st, 2nd, 3rd) per lift
+   */
+  async getAttemptSuccessRates(name: string): Promise<{
+    squat: { attempt1: { rate: number; made: number; total: number } | null; attempt2: { rate: number; made: number; total: number } | null; attempt3: { rate: number; made: number; total: number } | null } | null;
+    bench: { attempt1: { rate: number; made: number; total: number } | null; attempt2: { rate: number; made: number; total: number } | null; attempt3: { rate: number; made: number; total: number } | null } | null;
+    deadlift: { attempt1: { rate: number; made: number; total: number } | null; attempt2: { rate: number; made: number; total: number } | null; attempt3: { rate: number; made: number; total: number } | null } | null;
+  }> {
+    const { data, error } = await supabase
+      .from('lifter_records')
+      .select('squat1_kg, squat2_kg, squat3_kg, bench1_kg, bench2_kg, bench3_kg, deadlift1_kg, deadlift2_kg, deadlift3_kg')
+      .eq('name', name);
+
+    if (error) throw new APIError(500, error.message);
+
+    const records = data || [];
+
+    const calculateAttemptRate = (attemptKey: string) => {
+      let total = 0;
+      let made = 0;
+
+      records.forEach((record: any) => {
+        const value = record[attemptKey];
+        // Only count if attempt was taken (not null and not 0)
+        if (value != null && value !== 0) {
+          total++;
+          // Positive = successful, negative = failed
+          if (value > 0) {
+            made++;
+          }
+        }
+      });
+
+      if (total === 0) return null;
+
+      return {
+        rate: (made / total) * 100,
+        made,
+        total
+      };
+    };
+
+    const calculateLiftRates = (lift: 'squat' | 'bench' | 'deadlift') => {
+      const a1 = calculateAttemptRate(`${lift}1_kg`);
+      const a2 = calculateAttemptRate(`${lift}2_kg`);
+      const a3 = calculateAttemptRate(`${lift}3_kg`);
+
+      if (!a1 && !a2 && !a3) return null;
+
+      return {
+        attempt1: a1,
+        attempt2: a2,
+        attempt3: a3
+      };
+    };
+
+    return {
+      squat: calculateLiftRates('squat'),
+      bench: calculateLiftRates('bench'),
+      deadlift: calculateLiftRates('deadlift')
+    };
+  },
+
+  /**
    * Health check - verify Supabase connection
    */
   async healthCheck(): Promise<{ status: string; service: string }> {
