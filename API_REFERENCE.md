@@ -338,6 +338,130 @@ Get available equipment types.
 
 ---
 
+### Lifter Analytics (v1.2.0)
+
+#### `api.getOpenerTendencies(name)`
+
+Get opener tendencies (average opener percentage) for a lifter.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| name | string | Yes | Lifter name |
+
+**Returns:** `Promise<OpenerTendencies>`
+
+**Example:**
+```typescript
+const tendencies = await api.getOpenerTendencies('John Haack');
+```
+
+**Response:**
+```typescript
+{
+  squat: { average: 92.1, min: 89.5, max: 95.0, competitions: 8 },
+  bench: { average: 94.3, min: 91.0, max: 97.5, competitions: 8 },
+  deadlift: { average: 88.7, min: 85.0, max: 92.0, competitions: 8 }
+}
+```
+
+**Calculation:**
+- `opener_percentage = (Math.abs(attempt1) / best3_lift) × 100`
+- Only includes competitions where lifter completed the lift (best3 > 0)
+- Filters out unreasonable percentages (<50% or >110%)
+
+---
+
+#### `api.getJumpPatterns(name)`
+
+Get jump pattern statistics (weight increases between attempts) for a lifter.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| name | string | Yes | Lifter name |
+
+**Returns:** `Promise<JumpPatterns>`
+
+**Example:**
+```typescript
+const jumps = await api.getJumpPatterns('John Haack');
+```
+
+**Response:**
+```typescript
+{
+  squat: {
+    firstJump: { average: 7.5, min: 5, max: 10, count: 8 },
+    secondJump: { average: 5.0, min: 2.5, max: 7.5, count: 7 }
+  },
+  bench: {
+    firstJump: { average: 5.0, min: 2.5, max: 7.5, count: 8 },
+    secondJump: { average: 2.5, min: 0, max: 5, count: 6 }
+  },
+  deadlift: {
+    firstJump: { average: 10.0, min: 7.5, max: 15, count: 8 },
+    secondJump: { average: 7.5, min: 5, max: 10, count: 7 }
+  }
+}
+```
+
+**Calculation:**
+- `first_jump = Math.abs(attempt2) - Math.abs(attempt1)`
+- `second_jump = Math.abs(attempt3) - Math.abs(attempt2)`
+- Only includes jumps where both attempts exist
+- Filters out unreasonable jumps (<-20kg or >30kg)
+
+---
+
+#### `api.getAttemptSuccessRates(name)`
+
+Get make/miss rates for each attempt number (1st, 2nd, 3rd) per lift.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| name | string | Yes | Lifter name |
+
+**Returns:** `Promise<SuccessRates>`
+
+**Example:**
+```typescript
+const rates = await api.getAttemptSuccessRates('John Haack');
+```
+
+**Response:**
+```typescript
+{
+  squat: {
+    attempt1: { rate: 96, made: 24, total: 25 },
+    attempt2: { rate: 84, made: 21, total: 25 },
+    attempt3: { rate: 52, made: 13, total: 25 }
+  },
+  bench: {
+    attempt1: { rate: 100, made: 25, total: 25 },
+    attempt2: { rate: 88, made: 22, total: 25 },
+    attempt3: { rate: 64, made: 16, total: 25 }
+  },
+  deadlift: {
+    attempt1: { rate: 92, made: 23, total: 25 },
+    attempt2: { rate: 80, made: 20, total: 25 },
+    attempt3: { rate: 48, made: 12, total: 25 }
+  }
+}
+```
+
+**Calculation:**
+- `attempts_taken = count where value is not null and not 0`
+- `successful = count where value > 0`
+- `success_rate = (successful / attempts_taken) × 100`
+- Positive numbers = successful lift, negative = failed lift
+
+---
+
 ## TypeScript Types
 
 All types are defined in `src/types/index.ts`:
@@ -423,6 +547,64 @@ interface Competition {
   goodlift?: number;
   place: string;
   division?: string;
+}
+```
+
+### OpenerTendencies (v1.2.0)
+```typescript
+interface OpenerTendency {
+  average: number;  // Average opener percentage
+  min: number;      // Minimum opener percentage
+  max: number;      // Maximum opener percentage
+  competitions: number;  // Number of competitions analyzed
+}
+
+interface OpenerTendencies {
+  squat: OpenerTendency | null;
+  bench: OpenerTendency | null;
+  deadlift: OpenerTendency | null;
+}
+```
+
+### JumpPatterns (v1.2.0)
+```typescript
+interface JumpStats {
+  average: number;  // Average jump in kg
+  min: number;      // Minimum jump
+  max: number;      // Maximum jump
+  count: number;    // Number of jumps analyzed
+}
+
+interface LiftJumps {
+  firstJump: JumpStats | null;   // 1st→2nd attempt jump
+  secondJump: JumpStats | null;  // 2nd→3rd attempt jump
+}
+
+interface JumpPatterns {
+  squat: LiftJumps | null;
+  bench: LiftJumps | null;
+  deadlift: LiftJumps | null;
+}
+```
+
+### SuccessRates (v1.2.0)
+```typescript
+interface AttemptRate {
+  rate: number;   // Success rate percentage (0-100)
+  made: number;   // Number of successful attempts
+  total: number;  // Total attempts taken
+}
+
+interface LiftSuccessRates {
+  attempt1: AttemptRate | null;
+  attempt2: AttemptRate | null;
+  attempt3: AttemptRate | null;
+}
+
+interface SuccessRates {
+  squat: LiftSuccessRates | null;
+  bench: LiftSuccessRates | null;
+  deadlift: LiftSuccessRates | null;
 }
 ```
 
