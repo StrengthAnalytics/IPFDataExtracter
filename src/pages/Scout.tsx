@@ -600,7 +600,7 @@ export function Scout() {
           <p className="text-xs text-gray-500 mt-2">You can add up to 10 lifters</p>
 
           {/* Filter Criteria */}
-          <div className="mt-6 pt-6 border-t border-gray-700">
+          <div className="mt-6 pt-6">
             <h3 className="text-sm font-semibold text-white mb-4">Filter Criteria</h3>
 
             {/* Weight Class Filter */}
