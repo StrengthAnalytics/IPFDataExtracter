@@ -22,6 +22,7 @@ export function LifterProfile() {
   const [sortColumn, setSortColumn] = useState<CompSortColumn>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [weightClass, setWeightClass] = useState<string>('');
+  const [equipment, setEquipment] = useState<string>('');
 
   // Load lifter profile
   useEffect(() => {
@@ -39,12 +40,18 @@ export function LifterProfile() {
       .finally(() => setIsLoading(false));
   }, [name]);
 
-  // Get filtered competitions based on weight class
+  // Get filtered competitions based on weight class and equipment
   const filteredCompetitions = useMemo(() => {
     if (!profile?.competitions) return [];
-    if (!weightClass) return profile.competitions;
-    return profile.competitions.filter(comp => comp.weight_class_kg === weightClass);
-  }, [profile?.competitions, weightClass]);
+    let filtered = profile.competitions;
+    if (weightClass) {
+      filtered = filtered.filter(comp => comp.weight_class_kg === weightClass);
+    }
+    if (equipment) {
+      filtered = filtered.filter(comp => comp.equipment === equipment);
+    }
+    return filtered;
+  }, [profile?.competitions, weightClass, equipment]);
 
   // Compute best lifts from filtered competitions
   const bestLifts = useMemo((): BestLiftsResult | null => {
@@ -342,25 +349,46 @@ export function LifterProfile() {
         </div>
       </div>
 
-      {/* Weight Class Filter */}
-      <div className="mb-6 flex items-center gap-4">
-        <label className="text-sm text-gray-400">Weight Class:</label>
-        <select
-          className="input w-auto"
-          value={weightClass}
-          onChange={(e) => setWeightClass(e.target.value)}
-        >
-          <option value="">All Classes</option>
-          {profile.weight_classes && profile.weight_classes.map((wc: string) => (
-            <option key={wc} value={wc}>{wc} kg</option>
-          ))}
-        </select>
-        {weightClass && (
-          <span className="text-sm text-gray-500">
-            ({filteredCompetitions.length} of {profile.competitions.length} competitions)
-          </span>
-        )}
-      </div>
+      {/* Filters - only show if multiple options exist */}
+      {(profile.weight_classes?.length > 1 || profile.equipment_types?.length > 1) && (
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          {profile.weight_classes && profile.weight_classes.length > 1 && (
+            <>
+              <label className="text-sm text-gray-400">Weight Class:</label>
+              <select
+                className="input w-auto"
+                value={weightClass}
+                onChange={(e) => setWeightClass(e.target.value)}
+              >
+                <option value="">All Classes</option>
+                {profile.weight_classes.map((wc: string) => (
+                  <option key={wc} value={wc}>{wc} kg</option>
+                ))}
+              </select>
+            </>
+          )}
+          {profile.equipment_types && profile.equipment_types.length > 1 && (
+            <>
+              <label className="text-sm text-gray-400">Equipment:</label>
+              <select
+                className="input w-auto"
+                value={equipment}
+                onChange={(e) => setEquipment(e.target.value)}
+              >
+                <option value="">All Equipment</option>
+                {profile.equipment_types.map((eq: string) => (
+                  <option key={eq} value={eq}>{eq}</option>
+                ))}
+              </select>
+            </>
+          )}
+          {(weightClass || equipment) && (
+            <span className="text-sm text-gray-500">
+              ({filteredCompetitions.length} of {profile.competitions.length} competitions)
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Personal Bests */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
