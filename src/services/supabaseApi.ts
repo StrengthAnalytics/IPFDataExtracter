@@ -124,13 +124,12 @@ export const api = {
 
     if (summaryError) throw new APIError(404, 'Lifter not found');
 
-    // Get competition history
+    // Get competition history (all competitions for accurate stats)
     const { data: competitions, error: compError } = await supabase
       .from('lifter_records')
       .select('*')
       .eq('name', name)
-      .order('date', { ascending: false })
-      .limit(20);
+      .order('date', { ascending: false });
 
     if (compError) throw new APIError(500, compError.message);
 
@@ -775,8 +774,17 @@ function formatCompetition(record: any): Competition {
     weight_class_kg: record.weight_class_kg,
     bodyweight_kg: record.bodyweight_kg,
     best3_squat_kg: record.best3_squat_kg,
+    squat1_kg: record.squat1_kg,
+    squat2_kg: record.squat2_kg,
+    squat3_kg: record.squat3_kg,
     best3_bench_kg: record.best3_bench_kg,
+    bench1_kg: record.bench1_kg,
+    bench2_kg: record.bench2_kg,
+    bench3_kg: record.bench3_kg,
     best3_deadlift_kg: record.best3_deadlift_kg,
+    deadlift1_kg: record.deadlift1_kg,
+    deadlift2_kg: record.deadlift2_kg,
+    deadlift3_kg: record.deadlift3_kg,
     total_kg: record.total_kg,
     dots: record.dots,
     wilks: record.wilks,
