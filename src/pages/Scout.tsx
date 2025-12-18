@@ -524,9 +524,28 @@ export function Scout() {
       .finally(() => setIsLoadingProfile(false));
   }, [expandedLifter]);
 
-  // Toggle expanded lifter (accordion behavior)
-  const toggleExpandedLifter = (lifterName: string) => {
-    setExpandedLifter(prev => prev === lifterName ? null : lifterName);
+  // Toggle expanded lifter (accordion behavior) with scroll preservation
+  const toggleExpandedLifter = (lifterName: string, buttonElement?: HTMLElement) => {
+    const isCollapsing = expandedLifter === lifterName;
+
+    if (isCollapsing && buttonElement) {
+      // Store the button's position relative to viewport before collapsing
+      const rect = buttonElement.getBoundingClientRect();
+      const viewportOffset = rect.top;
+
+      setExpandedLifter(null);
+
+      // After state update and re-render, scroll to keep button in same position
+      requestAnimationFrame(() => {
+        const newRect = buttonElement.getBoundingClientRect();
+        const diff = newRect.top - viewportOffset;
+        if (Math.abs(diff) > 1) {
+          window.scrollBy(0, diff);
+        }
+      });
+    } else {
+      setExpandedLifter(isCollapsing ? null : lifterName);
+    }
   };
 
   // Filter expanded profile competitions by weight class
@@ -857,12 +876,12 @@ export function Scout() {
   };
 
   // Chevron icon for expand/collapse
-  const ChevronIcon = ({ expanded, onClick }: { expanded: boolean; onClick: () => void }) => (
+  const ChevronIcon = ({ expanded, onToggle }: { expanded: boolean; onToggle: (el: HTMLElement) => void }) => (
     <button
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        onClick();
+        onToggle(e.currentTarget as HTMLElement);
       }}
       className="p-1 hover:bg-gray-700 rounded transition-colors"
       title={expanded ? 'Collapse profile' : 'Expand profile'}
@@ -886,8 +905,8 @@ export function Scout() {
     if (isLoadingProfile) {
       return (
         <tr>
-          <td colSpan={7} className="py-4 px-2">
-            <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+          <td colSpan={7} className="py-2 px-2">
+            <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="flex items-center gap-2 text-gray-400">
                 <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
                 <span>Loading profile...</span>
@@ -903,23 +922,22 @@ export function Scout() {
     return (
       <tr>
         <td colSpan={7} className="py-2 px-2">
-          <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500">
-            {/* Header with weight class info */}
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-bold text-white">{expandedProfile.name}</h3>
-                <p className="text-sm text-gray-400">
-                  {expandedProfile.sex} • {expandedProfile.country}
-                  {weightClass && <span className="ml-2 text-primary-400">• Filtered to {weightClass} kg</span>}
-                </p>
-              </div>
-              <div className="text-right text-sm text-gray-500">
-                {filteredExpandedCompetitions.length} of {expandedProfile.competitions.length} competitions
-                {weightClass && filteredExpandedCompetitions.length === 0 && (
-                  <p className="text-yellow-500 mt-1">No data in this weight class</p>
+          <div className="bg-gray-900 rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500">
+            {/* Compact header - just filter info */}
+            {(weightClass || filteredExpandedCompetitions.length !== expandedProfile.competitions.length) && (
+              <div className="flex items-center justify-between mb-3 text-sm">
+                {weightClass && (
+                  <span className="text-primary-400">Filtered to {weightClass} kg</span>
                 )}
+                <span className="text-gray-500 ml-auto">
+                  {filteredExpandedCompetitions.length} of {expandedProfile.competitions.length} competitions
+                </span>
               </div>
-            </div>
+            )}
+
+            {filteredExpandedCompetitions.length === 0 && weightClass && (
+              <p className="text-yellow-500 text-sm mb-3">No data in this weight class</p>
+            )}
 
             {filteredExpandedCompetitions.length > 0 && (
               <>
@@ -1152,7 +1170,7 @@ export function Scout() {
     // Loading state
     if (isLoadingProfile) {
       return (
-        <div className="col-span-full bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+        <div className="col-span-full bg-gray-900 rounded-lg p-4 border border-gray-700">
           <div className="flex items-center gap-2 text-gray-400">
             <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
             <span>Loading profile...</span>
@@ -1164,31 +1182,22 @@ export function Scout() {
     if (!expandedProfile) return null;
 
     return (
-      <div className="col-span-full bg-gray-800/50 rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500">
-        {/* Same content as list view */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-bold text-white">{expandedProfile.name}</h3>
-            <p className="text-sm text-gray-400">
-              {expandedProfile.sex} • {expandedProfile.country}
-              {weightClass && <span className="ml-2 text-primary-400">• Filtered to {weightClass} kg</span>}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-right text-sm text-gray-500">
+      <div className="col-span-full bg-gray-900 rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500">
+        {/* Compact header - just filter info */}
+        {(weightClass || filteredExpandedCompetitions.length !== expandedProfile.competitions.length) && (
+          <div className="flex items-center justify-between mb-3 text-sm">
+            {weightClass && (
+              <span className="text-primary-400">Filtered to {weightClass} kg</span>
+            )}
+            <span className="text-gray-500 ml-auto">
               {filteredExpandedCompetitions.length} of {expandedProfile.competitions.length} competitions
-            </div>
-            <button
-              onClick={() => setExpandedLifter(null)}
-              className="p-1 hover:bg-gray-700 rounded transition-colors"
-              title="Collapse profile"
-            >
-              <svg className="w-5 h-5 text-gray-400 hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            </span>
           </div>
-        </div>
+        )}
+
+        {filteredExpandedCompetitions.length === 0 && weightClass && (
+          <p className="text-yellow-500 text-sm mb-3">No data in this weight class</p>
+        )}
 
         {filteredExpandedCompetitions.length > 0 ? (
           <>
@@ -1293,9 +1302,7 @@ export function Scout() {
               </a>
             </div>
           </>
-        ) : (
-          <p className="text-yellow-500 text-sm">No competition data in this weight class</p>
-        )}
+        ) : null}
       </div>
     );
   };
@@ -1750,7 +1757,7 @@ export function Scout() {
                     <td className="py-2 px-1">
                       <ChevronIcon
                         expanded={expandedLifter === lifter.name}
-                        onClick={() => toggleExpandedLifter(lifter.name)}
+                        onToggle={(el) => toggleExpandedLifter(lifter.name, el)}
                       />
                     </td>
                     <td className="py-2 px-2">
@@ -1854,7 +1861,7 @@ export function Scout() {
                       </a>
                       <ChevronIcon
                         expanded={expandedLifter === lifter.name}
-                        onClick={() => toggleExpandedLifter(lifter.name)}
+                        onToggle={(el) => toggleExpandedLifter(lifter.name, el)}
                       />
                     </div>
                     <div className="text-xs text-gray-500 mb-3">Meets: {lifter.total_competitions}</div>
