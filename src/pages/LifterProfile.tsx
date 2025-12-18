@@ -45,13 +45,41 @@ export function LifterProfile() {
     if (!profile?.competitions) return [];
     let filtered = profile.competitions;
     if (weightClass) {
-      filtered = filtered.filter(comp => comp.weight_class_kg === weightClass);
+      if (weightClass === '__unclassed__') {
+        filtered = filtered.filter(comp => !comp.weight_class_kg);
+      } else {
+        filtered = filtered.filter(comp => comp.weight_class_kg === weightClass);
+      }
     }
     if (equipment) {
       filtered = filtered.filter(comp => comp.equipment === equipment);
     }
     return filtered;
   }, [profile?.competitions, weightClass, equipment]);
+
+  // Compute unique weight classes from competitions (including unclassed)
+  const uniqueWeightClasses = useMemo(() => {
+    if (!profile?.competitions) return { classes: [] as string[], hasUnclassed: false };
+    const classSet = new Set<string>();
+    let hasUnclassed = false;
+
+    profile.competitions.forEach(comp => {
+      if (comp.weight_class_kg) {
+        classSet.add(comp.weight_class_kg);
+      } else {
+        hasUnclassed = true;
+      }
+    });
+
+    const classes = Array.from(classSet).sort((a, b) => parseFloat(a) - parseFloat(b));
+    return { classes, hasUnclassed };
+  }, [profile?.competitions]);
+
+  // Determine if weight class filter should show (multiple classes OR has both classed and unclassed)
+  const showWeightClassFilter = useMemo(() => {
+    const { classes, hasUnclassed } = uniqueWeightClasses;
+    return classes.length > 1 || (classes.length >= 1 && hasUnclassed);
+  }, [uniqueWeightClasses]);
 
   // Compute best lifts from filtered competitions
   const bestLifts = useMemo((): BestLiftsResult | null => {
@@ -350,9 +378,9 @@ export function LifterProfile() {
       </div>
 
       {/* Filters - only show if multiple options exist */}
-      {(profile.weight_classes?.length > 1 || profile.equipment_types?.length > 1) && (
+      {(showWeightClassFilter || profile.equipment_types?.length > 1) && (
         <div className="mb-6 flex flex-wrap items-center gap-4">
-          {profile.weight_classes && profile.weight_classes.length > 1 && (
+          {showWeightClassFilter && (
             <>
               <label className="text-sm text-gray-400">Weight Class:</label>
               <select
@@ -360,10 +388,13 @@ export function LifterProfile() {
                 value={weightClass}
                 onChange={(e) => setWeightClass(e.target.value)}
               >
-                <option value="">All Classes</option>
-                {profile.weight_classes.map((wc: string) => (
+                <option value="">All</option>
+                {uniqueWeightClasses.classes.map((wc: string) => (
                   <option key={wc} value={wc}>{wc} kg</option>
                 ))}
+                {uniqueWeightClasses.hasUnclassed && (
+                  <option value="__unclassed__">Unclassed (GL)</option>
+                )}
               </select>
             </>
           )}
@@ -375,7 +406,7 @@ export function LifterProfile() {
                 value={equipment}
                 onChange={(e) => setEquipment(e.target.value)}
               >
-                <option value="">All Equipment</option>
+                <option value="">All</option>
                 {profile.equipment_types.map((eq: string) => (
                   <option key={eq} value={eq}>{eq}</option>
                 ))}
