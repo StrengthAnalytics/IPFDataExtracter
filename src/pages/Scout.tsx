@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
 import { useToast } from '../components/Toast';
@@ -347,6 +347,10 @@ export function Scout() {
   const [expandedLifter, setExpandedLifter] = useState<string | null>(null);
   const [expandedProfile, setExpandedProfile] = useState<LifterProfileType | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [showAllCompetitions, setShowAllCompetitions] = useState(false);
+
+  // Ref for scroll preservation when collapsing
+  const scrollIntentRef = useRef<{ buttonElement: HTMLElement; viewportOffset: number } | null>(null);
 
   // Update URL params when state changes
   const updateUrlParams = useCallback(() => {
@@ -531,22 +535,30 @@ export function Scout() {
     if (isCollapsing && buttonElement) {
       // Store the button's position relative to viewport before collapsing
       const rect = buttonElement.getBoundingClientRect();
-      const viewportOffset = rect.top;
+      scrollIntentRef.current = { buttonElement, viewportOffset: rect.top };
+    }
 
+    if (isCollapsing) {
       setExpandedLifter(null);
-
-      // After state update and re-render, scroll to keep button in same position
-      requestAnimationFrame(() => {
-        const newRect = buttonElement.getBoundingClientRect();
-        const diff = newRect.top - viewportOffset;
-        if (Math.abs(diff) > 1) {
-          window.scrollBy(0, diff);
-        }
-      });
+      setShowAllCompetitions(false);
     } else {
-      setExpandedLifter(isCollapsing ? null : lifterName);
+      setExpandedLifter(lifterName);
+      setShowAllCompetitions(false);
     }
   };
+
+  // Handle scroll preservation after collapse - useLayoutEffect runs before browser paint
+  useLayoutEffect(() => {
+    if (expandedLifter === null && scrollIntentRef.current) {
+      const { buttonElement, viewportOffset } = scrollIntentRef.current;
+      const newRect = buttonElement.getBoundingClientRect();
+      const diff = newRect.top - viewportOffset;
+      if (Math.abs(diff) > 1) {
+        window.scrollBy(0, diff);
+      }
+      scrollIntentRef.current = null;
+    }
+  }, [expandedLifter]);
 
   // Filter expanded profile competitions by weight class
   const filteredExpandedCompetitions = useMemo(() => {
@@ -906,7 +918,7 @@ export function Scout() {
       return (
         <tr>
           <td colSpan={7} className="py-2 px-2">
-            <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
+            <div className="bg-gray-850 rounded-lg p-4 border border-gray-700" style={{ backgroundColor: '#1e2330' }}>
               <div className="flex items-center gap-2 text-gray-400">
                 <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
                 <span>Loading profile...</span>
@@ -922,7 +934,7 @@ export function Scout() {
     return (
       <tr>
         <td colSpan={7} className="py-2 px-2">
-          <div className="bg-gray-900 rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500">
+          <div className="rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500" style={{ backgroundColor: '#1e2330' }}>
             {/* Compact header - just filter info */}
             {(weightClass || filteredExpandedCompetitions.length !== expandedProfile.competitions.length) && (
               <div className="flex items-center justify-between mb-3 text-sm">
@@ -1111,9 +1123,11 @@ export function Scout() {
                   </div>
                 </div>
 
-                {/* Recent Competitions */}
+                {/* Competitions */}
                 <div className="mt-4">
-                  <h4 className="text-sm font-semibold text-gray-400 mb-2">Recent Competitions {weightClass && `(${weightClass} kg)`}</h4>
+                  <h4 className="text-sm font-semibold text-gray-400 mb-2">
+                    {showAllCompetitions ? 'All' : 'Recent'} Competitions {weightClass && `(${weightClass} kg)`}
+                  </h4>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
@@ -1128,7 +1142,7 @@ export function Scout() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredExpandedCompetitions.slice(0, 5).map((comp, idx) => (
+                        {(showAllCompetitions ? filteredExpandedCompetitions : filteredExpandedCompetitions.slice(0, 5)).map((comp, idx) => (
                           <tr key={idx} className="border-b border-gray-800">
                             <td className="py-1 px-2 text-gray-400">{formatDate(comp.date)}</td>
                             <td className="py-1 px-2 text-gray-300 max-w-[150px] truncate">{comp.meet_name}</td>
@@ -1143,14 +1157,14 @@ export function Scout() {
                     </table>
                     {filteredExpandedCompetitions.length > 5 && (
                       <div className="text-center mt-2">
-                        <a
-                          href={`/lifter/${encodeURIComponent(expandedProfile.name)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => setShowAllCompetitions(!showAllCompetitions)}
                           className="text-xs text-primary-500 hover:underline"
                         >
-                          View all {filteredExpandedCompetitions.length} competitions →
-                        </a>
+                          {showAllCompetitions
+                            ? '← Show less'
+                            : `Show all ${filteredExpandedCompetitions.length} competitions →`}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1170,7 +1184,7 @@ export function Scout() {
     // Loading state
     if (isLoadingProfile) {
       return (
-        <div className="col-span-full bg-gray-900 rounded-lg p-4 border border-gray-700">
+        <div className="col-span-full rounded-lg p-4 border border-gray-700" style={{ backgroundColor: '#1e2330' }}>
           <div className="flex items-center gap-2 text-gray-400">
             <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
             <span>Loading profile...</span>
@@ -1182,7 +1196,7 @@ export function Scout() {
     if (!expandedProfile) return null;
 
     return (
-      <div className="col-span-full bg-gray-900 rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500">
+      <div className="col-span-full rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500" style={{ backgroundColor: '#1e2330' }}>
         {/* Compact header - just filter info */}
         {(weightClass || filteredExpandedCompetitions.length !== expandedProfile.competitions.length) && (
           <div className="flex items-center justify-between mb-3 text-sm">
@@ -1290,17 +1304,43 @@ export function Scout() {
               </div>
             </div>
 
-            {/* Link to full profile */}
-            <div className="text-center">
-              <a
-                href={`/lifter/${encodeURIComponent(expandedProfile.name)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-primary-500 hover:underline"
-              >
-                View full profile →
-              </a>
-            </div>
+            {/* Competitions */}
+            {filteredExpandedCompetitions.length > 0 && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setShowAllCompetitions(!showAllCompetitions)}
+                  className="text-xs text-primary-500 hover:underline"
+                >
+                  {showAllCompetitions
+                    ? '← Hide competitions'
+                    : `Show ${filteredExpandedCompetitions.length} competitions →`}
+                </button>
+                {showAllCompetitions && (
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-700">
+                          <th className="text-left py-1 px-2 text-gray-500">Date</th>
+                          <th className="text-left py-1 px-2 text-gray-500">Meet</th>
+                          <th className="text-center py-1 px-2 text-gray-500">Total</th>
+                          <th className="text-center py-1 px-2 text-gray-500">Place</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredExpandedCompetitions.map((comp, idx) => (
+                          <tr key={idx} className="border-b border-gray-800">
+                            <td className="py-1 px-2 text-gray-400">{formatDate(comp.date)}</td>
+                            <td className="py-1 px-2 text-gray-300 max-w-[120px] truncate">{comp.meet_name}</td>
+                            <td className="py-1 px-2 text-center text-purple-400 font-semibold">{comp.total_kg || '-'}</td>
+                            <td className="py-1 px-2 text-center text-gray-400">{comp.place || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         ) : null}
       </div>
