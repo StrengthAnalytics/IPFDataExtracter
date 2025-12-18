@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
+import { LifterProfileSkeleton } from '../components/Skeleton';
 import type { LifterProfile as LifterProfileType, Competition, BestLifts } from '../types';
 
 interface OpenerTendency {
@@ -131,18 +132,12 @@ export function LifterProfile() {
   }, [name]);
 
   if (isLoading) {
-    return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <div className="animate-spin h-12 w-12 border-4 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
-        <p className="text-gray-400 mt-4">Loading profile...</p>
-      </div>
-    );
+    return <LifterProfileSkeleton />;
   }
 
   if (error || !profile) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <div className="text-5xl mb-4">😕</div>
         <h2 className="text-2xl font-bold text-white mb-2">Lifter Not Found</h2>
         <p className="text-gray-400 mb-6">{error || 'Could not find this lifter'}</p>
         <Link to="/" className="btn btn-primary">Back to Home</Link>

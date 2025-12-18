@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
+import { HomeStatsSkeleton } from '../components/Skeleton';
 import { api } from '../services/api';
 import type { LifterSearchResult } from '../types';
 
@@ -109,7 +110,7 @@ export function Home() {
         </div>
 
         {/* Stats */}
-        {stats && (
+        {stats ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
             <div className="card text-center">
               <div className="text-4xl font-bold text-primary-500 mb-2">
@@ -130,12 +131,13 @@ export function Home() {
               <div className="text-gray-400">Latest Competition</div>
             </div>
           </div>
+        ) : (
+          <HomeStatsSkeleton />
         )}
 
         {/* Features */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Link to="/scout" className="card hover:border-primary-500 border border-transparent transition-all group">
-            <div className="text-3xl mb-3">🔍</div>
             <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-primary-500 transition-colors">
               Scout Lifters
             </h3>
@@ -149,7 +151,6 @@ export function Home() {
                  const search = document.querySelector('input');
                  search?.focus();
                }}>
-            <div className="text-3xl mb-3">👤</div>
             <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-primary-500 transition-colors">
               Lifter Profiles
             </h3>
@@ -159,7 +160,6 @@ export function Home() {
           </div>
 
           <Link to="/standards" className="card hover:border-primary-500 border border-transparent transition-all group">
-            <div className="text-3xl mb-3">🎯</div>
             <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-primary-500 transition-colors">
               Strength Standards
             </h3>

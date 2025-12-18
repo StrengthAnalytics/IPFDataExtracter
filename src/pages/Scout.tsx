@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
+import { useToast } from '../components/Toast';
+import { ScoutListSkeleton, ScoutTilesSkeleton } from '../components/Skeleton';
 import { api } from '../services/api';
 import type { LifterSearchResult, BestLifts, PredictionAnalysis, CompetitionHistoryItem } from '../types';
 
@@ -211,6 +214,19 @@ const STORAGE_KEYS = {
   SORT_DIRECTION: 'scout_sort_direction',
 };
 
+// URL param keys (short for cleaner URLs)
+const URL_PARAMS = {
+  LIFTERS: 'lifters',
+  WEIGHT_CLASS: 'wc',
+  AGGREGATION: 'agg',
+  RANKING: 'rank',
+  VIEW: 'view',
+  SORT: 'sort',
+  SORT_DIR: 'dir',
+  TARGET_DATE: 'target',
+  TREND_RANGE: 'range',
+};
+
 // Helper functions for sessionStorage
 const getStorageItem = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -230,40 +246,78 @@ const setStorageItem = <T,>(key: string, value: T): void => {
 };
 
 export function Scout() {
-  // Load persisted state from sessionStorage
-  const [selectedLifters, setSelectedLifters] = useState<string[]>(() =>
-    getStorageItem(STORAGE_KEYS.SELECTED_LIFTERS, [])
-  );
+  const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Helper to get default date range
+  const getDefaultDates = () => {
+    const now = new Date();
+    const threeYearsAgo = new Date();
+    threeYearsAgo.setFullYear(now.getFullYear() - 3);
+    return {
+      start: threeYearsAgo.toISOString().split('T')[0],
+      end: now.toISOString().split('T')[0],
+    };
+  };
+
+  // Initialize state from URL params, falling back to sessionStorage, then defaults
+  const [selectedLifters, setSelectedLifters] = useState<string[]>(() => {
+    const urlLifters = searchParams.get(URL_PARAMS.LIFTERS);
+    if (urlLifters) return urlLifters.split(',').filter(Boolean);
+    return getStorageItem(STORAGE_KEYS.SELECTED_LIFTERS, []);
+  });
+
   const [comparisonData, setComparisonData] = useState<BestLifts[] | null>(null);
+
   const [startDate, setStartDate] = useState<string>(() =>
-    getStorageItem(STORAGE_KEYS.START_DATE, '')
+    getStorageItem(STORAGE_KEYS.START_DATE, getDefaultDates().start)
   );
   const [endDate, setEndDate] = useState<string>(() =>
-    getStorageItem(STORAGE_KEYS.END_DATE, '')
+    getStorageItem(STORAGE_KEYS.END_DATE, getDefaultDates().end)
   );
-  const [weightClass, setWeightClass] = useState<string>(() =>
-    getStorageItem(STORAGE_KEYS.WEIGHT_CLASS, '')
-  );
+
+  const [weightClass, setWeightClass] = useState<string>(() => {
+    const urlWc = searchParams.get(URL_PARAMS.WEIGHT_CLASS);
+    if (urlWc) return urlWc;
+    return getStorageItem(STORAGE_KEYS.WEIGHT_CLASS, '');
+  });
+
   const [weightClasses, setWeightClasses] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [sortColumn, setSortColumn] = useState<SortColumn>(() =>
-    getStorageItem(STORAGE_KEYS.SORT_COLUMN, 'prediction')
-  );
-  const [sortDirection, setSortDirection] = useState<SortDirection>(() =>
-    getStorageItem(STORAGE_KEYS.SORT_DIRECTION, 'desc')
-  );
+
+  const [sortColumn, setSortColumn] = useState<SortColumn>(() => {
+    const urlSort = searchParams.get(URL_PARAMS.SORT) as SortColumn | null;
+    if (urlSort && ['name', 'squat', 'bench', 'deadlift', 'total', 'meets', 'prediction'].includes(urlSort)) {
+      return urlSort;
+    }
+    return getStorageItem(STORAGE_KEYS.SORT_COLUMN, 'prediction');
+  });
+
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+    const urlDir = searchParams.get(URL_PARAMS.SORT_DIR) as SortDirection | null;
+    if (urlDir && ['asc', 'desc'].includes(urlDir)) return urlDir;
+    return getStorageItem(STORAGE_KEYS.SORT_DIRECTION, 'desc');
+  });
+
   const [useFuzzySearch, setUseFuzzySearch] = useState(false);
   const [showFuzzyInfo, setShowFuzzyInfo] = useState(false);
   const [showComparisonInfo, setShowComparisonInfo] = useState(false);
-  const [aggregationMode, setAggregationMode] = useState<AggregationMode>(() =>
-    getStorageItem(STORAGE_KEYS.AGGREGATION_MODE, 'byComp')
-  );
-  const [rankingMethod, setRankingMethod] = useState<RankingMethod>(() =>
-    getStorageItem(STORAGE_KEYS.RANKING_METHOD, 'total')
-  );
 
-  // Set responsive default: tiles for mobile, list for desktop (with persistence)
+  const [aggregationMode, setAggregationMode] = useState<AggregationMode>(() => {
+    const urlAgg = searchParams.get(URL_PARAMS.AGGREGATION) as AggregationMode | null;
+    if (urlAgg && ['byLift', 'byComp'].includes(urlAgg)) return urlAgg;
+    return getStorageItem(STORAGE_KEYS.AGGREGATION_MODE, 'byComp');
+  });
+
+  const [rankingMethod, setRankingMethod] = useState<RankingMethod>(() => {
+    const urlRank = searchParams.get(URL_PARAMS.RANKING) as RankingMethod | null;
+    if (urlRank && ['total', 'ipfgl'].includes(urlRank)) return urlRank;
+    return getStorageItem(STORAGE_KEYS.RANKING_METHOD, 'total');
+  });
+
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const urlView = searchParams.get(URL_PARAMS.VIEW) as ViewMode | null;
+    if (urlView && ['list', 'tiles'].includes(urlView)) return urlView;
     const saved = getStorageItem<ViewMode | null>(STORAGE_KEYS.VIEW_MODE, null);
     if (saved) return saved;
     return window.innerWidth < 768 ? 'tiles' : 'list';
@@ -271,28 +325,68 @@ export function Scout() {
 
   // Prediction feature state - always enabled
   const [predictionEnabled] = useState(true);
+
   const [targetDate, setTargetDate] = useState<string>(() => {
-    // Default to today
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    const urlTarget = searchParams.get(URL_PARAMS.TARGET_DATE);
+    if (urlTarget) return urlTarget;
+    return new Date().toISOString().split('T')[0];
   });
-  const [trendRange, setTrendRange] = useState<TrendRange>(18);
+
+  const [trendRange, setTrendRange] = useState<TrendRange>(() => {
+    const urlRange = searchParams.get(URL_PARAMS.TREND_RANGE);
+    if (urlRange && ['12', '18', '24'].includes(urlRange)) {
+      return parseInt(urlRange) as TrendRange;
+    }
+    return 18;
+  });
+
   const [predictions, setPredictions] = useState<Map<string, PredictionAnalysis>>(new Map());
   const [isPredicting, setIsPredicting] = useState(false);
 
-  // Initialize date defaults (last 3 years to current) - only if not already set
-  useEffect(() => {
-    if (!startDate || !endDate) {
-      const now = new Date();
-      const threeYearsAgo = new Date();
-      threeYearsAgo.setFullYear(now.getFullYear() - 3);
+  // Update URL params when state changes
+  const updateUrlParams = useCallback(() => {
+    const params = new URLSearchParams();
 
-      if (!endDate) setEndDate(now.toISOString().split('T')[0]);
-      if (!startDate) setStartDate(threeYearsAgo.toISOString().split('T')[0]);
+    // Only add params that differ from defaults
+    if (selectedLifters.length > 0) {
+      params.set(URL_PARAMS.LIFTERS, selectedLifters.join(','));
     }
-  }, []);
+    if (weightClass) {
+      params.set(URL_PARAMS.WEIGHT_CLASS, weightClass);
+    }
+    if (aggregationMode !== 'byComp') {
+      params.set(URL_PARAMS.AGGREGATION, aggregationMode);
+    }
+    if (rankingMethod !== 'total') {
+      params.set(URL_PARAMS.RANKING, rankingMethod);
+    }
+    if (viewMode !== (window.innerWidth < 768 ? 'tiles' : 'list')) {
+      params.set(URL_PARAMS.VIEW, viewMode);
+    }
+    if (sortColumn !== 'prediction') {
+      params.set(URL_PARAMS.SORT, sortColumn);
+    }
+    if (sortDirection !== 'desc') {
+      params.set(URL_PARAMS.SORT_DIR, sortDirection);
+    }
+    // Only include target date if it's in the future
+    const today = new Date().toISOString().split('T')[0];
+    if (targetDate !== today) {
+      params.set(URL_PARAMS.TARGET_DATE, targetDate);
+    }
+    if (trendRange !== 18) {
+      params.set(URL_PARAMS.TREND_RANGE, String(trendRange));
+    }
 
-  // Persist state to sessionStorage
+    setSearchParams(params, { replace: true });
+  }, [selectedLifters, weightClass, aggregationMode, rankingMethod, viewMode, sortColumn, sortDirection, targetDate, trendRange, setSearchParams]);
+
+  // Sync URL when state changes
+  useEffect(() => {
+    updateUrlParams();
+  }, [updateUrlParams]);
+
+  // Persist to sessionStorage as backup
   useEffect(() => {
     setStorageItem(STORAGE_KEYS.SELECTED_LIFTERS, selectedLifters);
   }, [selectedLifters]);
@@ -342,7 +436,7 @@ export function Scout() {
 
   // Auto-update comparison when filters or lifters change
   useEffect(() => {
-    if (selectedLifters.length < 2) {
+    if (selectedLifters.length < 1) {
       setComparisonData(null);
       return;
     }
@@ -409,16 +503,26 @@ export function Scout() {
   }, [predictionEnabled, selectedLifters, targetDate, trendRange, weightClass]);
 
   const handleAddLifter = (lifter: LifterSearchResult) => {
-    if (!selectedLifters.includes(lifter.name) && selectedLifters.length < 10) {
-      setSelectedLifters([...selectedLifters, lifter.name]);
+    if (selectedLifters.includes(lifter.name)) {
+      addToast(`${lifter.name} is already in your comparison`, 'warning');
+      return;
     }
+    if (selectedLifters.length >= 14) {
+      addToast('Maximum of 14 lifters reached', 'warning');
+      return;
+    }
+    setSelectedLifters([...selectedLifters, lifter.name]);
+    addToast(`Added ${lifter.name}`, 'success');
   };
 
   const handleRemoveLifter = (name: string) => {
     setSelectedLifters(selectedLifters.filter(n => n !== name));
+    addToast(`Removed ${name}`, 'info');
   };
 
   const handleClearSelection = () => {
+    const count = selectedLifters.length;
+
     // Clear state
     setSelectedLifters([]);
     setComparisonData(null);
@@ -436,6 +540,27 @@ export function Scout() {
     threeYearsAgo.setFullYear(now.getFullYear() - 3);
     setEndDate(now.toISOString().split('T')[0]);
     setStartDate(threeYearsAgo.toISOString().split('T')[0]);
+
+    // Clear URL params
+    setSearchParams(new URLSearchParams(), { replace: true });
+
+    addToast(`Cleared ${count} lifter${count !== 1 ? 's' : ''}`, 'info');
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      addToast('Link copied to clipboard', 'success');
+    } catch {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = window.location.href;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      addToast('Link copied to clipboard', 'success');
+    }
   };
 
   const formatWeight = (kg?: number) => kg ? `${kg} kg` : '-';
@@ -597,7 +722,7 @@ export function Scout() {
             weightClass={weightClass || undefined}
             useFuzzySearch={useFuzzySearch}
           />
-          <p className="text-xs text-gray-500 mt-2">You can add up to 10 lifters</p>
+          <p className="text-xs text-gray-500 mt-2">You can add up to 14 lifters</p>
 
           {/* Filter Criteria */}
           <div className="mt-6 pt-6">
@@ -667,7 +792,7 @@ export function Scout() {
             <h2 className="text-lg font-semibold text-white">
               Selected Lifters ({selectedLifters.length})
             </h2>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {isLoading && (
                 <div className="flex items-center gap-2 text-gray-400">
                   <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
@@ -675,10 +800,20 @@ export function Scout() {
                 </div>
               )}
               <button
+                onClick={handleCopyLink}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                title="Copy shareable link"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                <span className="hidden sm:inline">Copy Link</span>
+              </button>
+              <button
                 onClick={handleClearSelection}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
-                Clear Selection
+                Clear
               </button>
             </div>
           </div>
@@ -695,11 +830,18 @@ export function Scout() {
               </div>
             ))}
           </div>
-          {selectedLifters.length === 1 && (
-            <div className="mt-3 text-sm text-gray-400">
-              Add at least one more lifter to see comparison
+        </div>
+      )}
+
+      {/* Comparison Results - Loading Skeleton */}
+      {isLoading && selectedLifters.length >= 1 && !comparisonData && (
+        <div className="card">
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-lg font-semibold text-white">Loading Comparison...</h2>
             </div>
-          )}
+          </div>
+          {viewMode === 'list' ? <ScoutListSkeleton /> : <ScoutTilesSkeleton />}
         </div>
       )}
 
@@ -1173,7 +1315,6 @@ export function Scout() {
 
       {selectedLifters.length === 0 && (
         <div className="card text-center py-12">
-          <div className="text-5xl mb-4">🔍</div>
           <h3 className="text-xl font-semibold text-white mb-2">Start Scouting</h3>
           <p className="text-gray-400">Search and add lifters to begin comparing their performances</p>
         </div>
