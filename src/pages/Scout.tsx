@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
 import { useToast } from '../components/Toast';
 import { ScoutListSkeleton, ScoutTilesSkeleton } from '../components/Skeleton';
 import { api } from '../services/api';
-import type { LifterSearchResult, BestLifts, PredictionAnalysis, CompetitionHistoryItem } from '../types';
+import type { LifterSearchResult, BestLifts, PredictionAnalysis, CompetitionHistoryItem, LifterProfile as LifterProfileType, Competition } from '../types';
 
 type SortColumn = 'name' | 'squat' | 'bench' | 'deadlift' | 'total' | 'meets' | 'prediction';
 type SortDirection = 'asc' | 'desc';
@@ -343,6 +343,11 @@ export function Scout() {
   const [predictions, setPredictions] = useState<Map<string, PredictionAnalysis>>(new Map());
   const [isPredicting, setIsPredicting] = useState(false);
 
+  // Expanded lifter profile state (accordion - only one at a time)
+  const [expandedLifter, setExpandedLifter] = useState<string | null>(null);
+  const [expandedProfile, setExpandedProfile] = useState<LifterProfileType | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+
   // Update URL params when state changes
   const updateUrlParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -501,6 +506,180 @@ export function Scout() {
 
     fetchPredictions();
   }, [predictionEnabled, selectedLifters, targetDate, trendRange, weightClass]);
+
+  // Fetch expanded lifter's profile
+  useEffect(() => {
+    if (!expandedLifter) {
+      setExpandedProfile(null);
+      return;
+    }
+
+    setIsLoadingProfile(true);
+    api.getLifterProfile(expandedLifter)
+      .then(setExpandedProfile)
+      .catch((err) => {
+        console.error('Error loading expanded profile:', err);
+        setExpandedProfile(null);
+      })
+      .finally(() => setIsLoadingProfile(false));
+  }, [expandedLifter]);
+
+  // Toggle expanded lifter (accordion behavior)
+  const toggleExpandedLifter = (lifterName: string) => {
+    setExpandedLifter(prev => prev === lifterName ? null : lifterName);
+  };
+
+  // Filter expanded profile competitions by weight class
+  const filteredExpandedCompetitions = useMemo(() => {
+    if (!expandedProfile?.competitions) return [];
+    if (!weightClass) return expandedProfile.competitions;
+    if (weightClass === '__unclassed__') {
+      return expandedProfile.competitions.filter(comp => !comp.weight_class_kg);
+    }
+    return expandedProfile.competitions.filter(comp => comp.weight_class_kg === weightClass);
+  }, [expandedProfile?.competitions, weightClass]);
+
+  // Compute best lifts from filtered expanded competitions
+  const expandedBestLifts = useMemo(() => {
+    if (filteredExpandedCompetitions.length === 0) return null;
+
+    const findBest = (key: 'best3_squat_kg' | 'best3_bench_kg' | 'best3_deadlift_kg' | 'total_kg'): Competition | null => {
+      let best: Competition | null = null;
+      let maxVal = 0;
+      filteredExpandedCompetitions.forEach(comp => {
+        const val = comp[key];
+        if (val && val > maxVal) {
+          maxVal = val;
+          best = comp;
+        }
+      });
+      return best;
+    };
+
+    return {
+      best_squat: findBest('best3_squat_kg'),
+      best_bench: findBest('best3_bench_kg'),
+      best_deadlift: findBest('best3_deadlift_kg'),
+      best_total: findBest('total_kg')
+    };
+  }, [filteredExpandedCompetitions]);
+
+  // Compute success rates from filtered expanded competitions
+  const expandedSuccessRates = useMemo(() => {
+    if (filteredExpandedCompetitions.length === 0) return null;
+
+    const calcRates = (a1Key: keyof Competition, a2Key: keyof Competition, a3Key: keyof Competition) => {
+      let a1Made = 0, a1Total = 0;
+      let a2Made = 0, a2Total = 0;
+      let a3Made = 0, a3Total = 0;
+
+      filteredExpandedCompetitions.forEach(comp => {
+        const a1 = comp[a1Key] as number | undefined;
+        const a2 = comp[a2Key] as number | undefined;
+        const a3 = comp[a3Key] as number | undefined;
+
+        if (a1 != null && a1 !== 0) {
+          a1Total++;
+          if (a1 > 0) a1Made++;
+        }
+        if (a2 != null && a2 !== 0) {
+          a2Total++;
+          if (a2 > 0) a2Made++;
+        }
+        if (a3 != null && a3 !== 0) {
+          a3Total++;
+          if (a3 > 0) a3Made++;
+        }
+      });
+
+      return {
+        attempt1: a1Total > 0 ? { rate: (a1Made / a1Total) * 100, made: a1Made, total: a1Total } : null,
+        attempt2: a2Total > 0 ? { rate: (a2Made / a2Total) * 100, made: a2Made, total: a2Total } : null,
+        attempt3: a3Total > 0 ? { rate: (a3Made / a3Total) * 100, made: a3Made, total: a3Total } : null
+      };
+    };
+
+    return {
+      squat: calcRates('squat1_kg', 'squat2_kg', 'squat3_kg'),
+      bench: calcRates('bench1_kg', 'bench2_kg', 'bench3_kg'),
+      deadlift: calcRates('deadlift1_kg', 'deadlift2_kg', 'deadlift3_kg')
+    };
+  }, [filteredExpandedCompetitions]);
+
+  // Compute opener tendencies from filtered expanded competitions
+  const expandedOpenerTendencies = useMemo(() => {
+    if (filteredExpandedCompetitions.length === 0) return null;
+
+    const calcTendency = (a1Key: keyof Competition, bestKey: keyof Competition) => {
+      const percentages: number[] = [];
+      filteredExpandedCompetitions.forEach(comp => {
+        const a1 = comp[a1Key] as number | undefined;
+        const best = comp[bestKey] as number | undefined;
+        if (!a1 || !best || best <= 0) return;
+        const pct = (Math.abs(a1) / best) * 100;
+        if (pct >= 50 && pct <= 110) percentages.push(pct);
+      });
+      if (percentages.length === 0) return null;
+      return {
+        average: percentages.reduce((a, b) => a + b, 0) / percentages.length,
+        min: Math.min(...percentages),
+        max: Math.max(...percentages),
+        competitions: percentages.length
+      };
+    };
+
+    return {
+      squat: calcTendency('squat1_kg', 'best3_squat_kg'),
+      bench: calcTendency('bench1_kg', 'best3_bench_kg'),
+      deadlift: calcTendency('deadlift1_kg', 'best3_deadlift_kg')
+    };
+  }, [filteredExpandedCompetitions]);
+
+  // Compute jump patterns from filtered expanded competitions
+  const expandedJumpPatterns = useMemo(() => {
+    if (filteredExpandedCompetitions.length === 0) return null;
+
+    const calcJumps = (a1Key: keyof Competition, a2Key: keyof Competition, a3Key: keyof Competition) => {
+      const firstJumps: number[] = [];
+      const secondJumps: number[] = [];
+
+      filteredExpandedCompetitions.forEach(comp => {
+        const a1 = comp[a1Key] as number | undefined;
+        const a2 = comp[a2Key] as number | undefined;
+        const a3 = comp[a3Key] as number | undefined;
+
+        if (a1 != null && a2 != null) {
+          const jump = Math.abs(a2) - Math.abs(a1);
+          if (jump >= -20 && jump <= 30) firstJumps.push(jump);
+        }
+        if (a2 != null && a3 != null) {
+          const jump = Math.abs(a3) - Math.abs(a2);
+          if (jump >= -20 && jump <= 30) secondJumps.push(jump);
+        }
+      });
+
+      const calcStats = (jumps: number[]) => {
+        if (jumps.length === 0) return null;
+        return {
+          average: jumps.reduce((a, b) => a + b, 0) / jumps.length,
+          min: Math.min(...jumps),
+          max: Math.max(...jumps),
+          count: jumps.length
+        };
+      };
+
+      const first = calcStats(firstJumps);
+      const second = calcStats(secondJumps);
+      if (!first && !second) return null;
+      return { firstJump: first, secondJump: second };
+    };
+
+    return {
+      squat: calcJumps('squat1_kg', 'squat2_kg', 'squat3_kg'),
+      bench: calcJumps('bench1_kg', 'bench2_kg', 'bench3_kg'),
+      deadlift: calcJumps('deadlift1_kg', 'deadlift2_kg', 'deadlift3_kg')
+    };
+  }, [filteredExpandedCompetitions]);
 
   const handleAddLifter = (lifter: LifterSearchResult) => {
     if (selectedLifters.includes(lifter.name)) {
@@ -670,6 +849,456 @@ export function Scout() {
     );
   };
 
+  // Get color class based on success rate
+  const getRateColor = (rate: number) => {
+    if (rate >= 80) return 'text-green-400';
+    if (rate >= 60) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
+  // Chevron icon for expand/collapse
+  const ChevronIcon = ({ expanded, onClick }: { expanded: boolean; onClick: () => void }) => (
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }}
+      className="p-1 hover:bg-gray-700 rounded transition-colors"
+      title={expanded ? 'Collapse profile' : 'Expand profile'}
+    >
+      <svg
+        className={`w-4 h-4 text-gray-400 hover:text-white transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+  );
+
+  // Render the expanded lifter profile inline
+  const renderExpandedProfile = () => {
+    if (!expandedLifter) return null;
+
+    // Loading state
+    if (isLoadingProfile) {
+      return (
+        <tr>
+          <td colSpan={7} className="py-4 px-2">
+            <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+              <div className="flex items-center gap-2 text-gray-400">
+                <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
+                <span>Loading profile...</span>
+              </div>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    if (!expandedProfile) return null;
+
+    return (
+      <tr>
+        <td colSpan={7} className="py-2 px-2">
+          <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500">
+            {/* Header with weight class info */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white">{expandedProfile.name}</h3>
+                <p className="text-sm text-gray-400">
+                  {expandedProfile.sex} • {expandedProfile.country}
+                  {weightClass && <span className="ml-2 text-primary-400">• Filtered to {weightClass} kg</span>}
+                </p>
+              </div>
+              <div className="text-right text-sm text-gray-500">
+                {filteredExpandedCompetitions.length} of {expandedProfile.competitions.length} competitions
+                {weightClass && filteredExpandedCompetitions.length === 0 && (
+                  <p className="text-yellow-500 mt-1">No data in this weight class</p>
+                )}
+              </div>
+            </div>
+
+            {filteredExpandedCompetitions.length > 0 && (
+              <>
+                {/* Personal Bests Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                  {/* Squat Card */}
+                  <div className="bg-gray-900 rounded-lg p-3">
+                    <div className="flex gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-500">Best Squat</div>
+                        <div className="text-2xl font-bold text-green-400">{formatWeight(expandedBestLifts?.best_squat?.best3_squat_kg)}</div>
+                        {expandedBestLifts?.best_squat && renderAttempts(
+                          expandedBestLifts.best_squat.squat1_kg,
+                          expandedBestLifts.best_squat.squat2_kg,
+                          expandedBestLifts.best_squat.squat3_kg,
+                          'text-green-400/80'
+                        )}
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(expandedBestLifts?.best_squat?.date)}</div>
+                      </div>
+                      {/* Stats */}
+                      <div className="flex gap-1">
+                        {expandedSuccessRates?.squat && (
+                          <div className="flex flex-col gap-0.5 text-center">
+                            <div className="text-[9px] text-gray-500">Success</div>
+                            {[expandedSuccessRates.squat.attempt1, expandedSuccessRates.squat.attempt2, expandedSuccessRates.squat.attempt3].map((data, idx) => (
+                              <div key={idx} className="bg-gray-800 rounded px-1.5 py-0.5">
+                                {data ? (
+                                  <div className={`text-xs font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
+                                ) : (
+                                  <div className="text-gray-700 text-xs">-</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {expandedOpenerTendencies?.squat && (
+                          <div className="flex flex-col gap-0.5 text-center">
+                            <div className="text-[9px] text-gray-500">Jumps</div>
+                            <div className="bg-gray-800 rounded px-1.5 py-0.5">
+                              <div className="text-xs font-bold text-green-400">{expandedOpenerTendencies.squat.average.toFixed(0)}%</div>
+                            </div>
+                            {expandedJumpPatterns?.squat?.firstJump && (
+                              <div className="bg-gray-800 rounded px-1.5 py-0.5">
+                                <div className="text-xs font-bold text-green-400">+{expandedJumpPatterns.squat.firstJump.average.toFixed(0)}</div>
+                              </div>
+                            )}
+                            {expandedJumpPatterns?.squat?.secondJump && (
+                              <div className="bg-gray-800 rounded px-1.5 py-0.5">
+                                <div className="text-xs font-bold text-green-400">+{expandedJumpPatterns.squat.secondJump.average.toFixed(0)}</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bench Card */}
+                  <div className="bg-gray-900 rounded-lg p-3">
+                    <div className="flex gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-500">Best Bench</div>
+                        <div className="text-2xl font-bold text-blue-400">{formatWeight(expandedBestLifts?.best_bench?.best3_bench_kg)}</div>
+                        {expandedBestLifts?.best_bench && renderAttempts(
+                          expandedBestLifts.best_bench.bench1_kg,
+                          expandedBestLifts.best_bench.bench2_kg,
+                          expandedBestLifts.best_bench.bench3_kg,
+                          'text-blue-400/80'
+                        )}
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(expandedBestLifts?.best_bench?.date)}</div>
+                      </div>
+                      <div className="flex gap-1">
+                        {expandedSuccessRates?.bench && (
+                          <div className="flex flex-col gap-0.5 text-center">
+                            <div className="text-[9px] text-gray-500">Success</div>
+                            {[expandedSuccessRates.bench.attempt1, expandedSuccessRates.bench.attempt2, expandedSuccessRates.bench.attempt3].map((data, idx) => (
+                              <div key={idx} className="bg-gray-800 rounded px-1.5 py-0.5">
+                                {data ? (
+                                  <div className={`text-xs font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
+                                ) : (
+                                  <div className="text-gray-700 text-xs">-</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {expandedOpenerTendencies?.bench && (
+                          <div className="flex flex-col gap-0.5 text-center">
+                            <div className="text-[9px] text-gray-500">Jumps</div>
+                            <div className="bg-gray-800 rounded px-1.5 py-0.5">
+                              <div className="text-xs font-bold text-blue-400">{expandedOpenerTendencies.bench.average.toFixed(0)}%</div>
+                            </div>
+                            {expandedJumpPatterns?.bench?.firstJump && (
+                              <div className="bg-gray-800 rounded px-1.5 py-0.5">
+                                <div className="text-xs font-bold text-blue-400">+{expandedJumpPatterns.bench.firstJump.average.toFixed(0)}</div>
+                              </div>
+                            )}
+                            {expandedJumpPatterns?.bench?.secondJump && (
+                              <div className="bg-gray-800 rounded px-1.5 py-0.5">
+                                <div className="text-xs font-bold text-blue-400">+{expandedJumpPatterns.bench.secondJump.average.toFixed(0)}</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Deadlift Card */}
+                  <div className="bg-gray-900 rounded-lg p-3">
+                    <div className="flex gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-500">Best Deadlift</div>
+                        <div className="text-2xl font-bold text-red-400">{formatWeight(expandedBestLifts?.best_deadlift?.best3_deadlift_kg)}</div>
+                        {expandedBestLifts?.best_deadlift && renderAttempts(
+                          expandedBestLifts.best_deadlift.deadlift1_kg,
+                          expandedBestLifts.best_deadlift.deadlift2_kg,
+                          expandedBestLifts.best_deadlift.deadlift3_kg,
+                          'text-red-400/80'
+                        )}
+                        <div className="text-xs text-gray-500 mt-1">{formatDate(expandedBestLifts?.best_deadlift?.date)}</div>
+                      </div>
+                      <div className="flex gap-1">
+                        {expandedSuccessRates?.deadlift && (
+                          <div className="flex flex-col gap-0.5 text-center">
+                            <div className="text-[9px] text-gray-500">Success</div>
+                            {[expandedSuccessRates.deadlift.attempt1, expandedSuccessRates.deadlift.attempt2, expandedSuccessRates.deadlift.attempt3].map((data, idx) => (
+                              <div key={idx} className="bg-gray-800 rounded px-1.5 py-0.5">
+                                {data ? (
+                                  <div className={`text-xs font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
+                                ) : (
+                                  <div className="text-gray-700 text-xs">-</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {expandedOpenerTendencies?.deadlift && (
+                          <div className="flex flex-col gap-0.5 text-center">
+                            <div className="text-[9px] text-gray-500">Jumps</div>
+                            <div className="bg-gray-800 rounded px-1.5 py-0.5">
+                              <div className="text-xs font-bold text-red-400">{expandedOpenerTendencies.deadlift.average.toFixed(0)}%</div>
+                            </div>
+                            {expandedJumpPatterns?.deadlift?.firstJump && (
+                              <div className="bg-gray-800 rounded px-1.5 py-0.5">
+                                <div className="text-xs font-bold text-red-400">+{expandedJumpPatterns.deadlift.firstJump.average.toFixed(0)}</div>
+                              </div>
+                            )}
+                            {expandedJumpPatterns?.deadlift?.secondJump && (
+                              <div className="bg-gray-800 rounded px-1.5 py-0.5">
+                                <div className="text-xs font-bold text-red-400">+{expandedJumpPatterns.deadlift.secondJump.average.toFixed(0)}</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total Card */}
+                  <div className="bg-gray-900 rounded-lg p-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-gray-500">Best Total</div>
+                      <div className="text-2xl font-bold text-purple-400">{formatWeight(expandedBestLifts?.best_total?.total_kg)}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {expandedBestLifts?.best_total?.goodlift?.toFixed(2)} IPF GL
+                      </div>
+                      <div className="text-xs text-gray-500">{formatDate(expandedBestLifts?.best_total?.date)}</div>
+                      <div className="text-xs text-gray-600 truncate">{expandedBestLifts?.best_total?.meet_name}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Competitions */}
+                <div className="mt-4">
+                  <h4 className="text-sm font-semibold text-gray-400 mb-2">Recent Competitions {weightClass && `(${weightClass} kg)`}</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-700">
+                          <th className="text-left py-1 px-2 text-gray-500">Date</th>
+                          <th className="text-left py-1 px-2 text-gray-500">Meet</th>
+                          <th className="text-center py-1 px-2 text-gray-500">SQ</th>
+                          <th className="text-center py-1 px-2 text-gray-500">BP</th>
+                          <th className="text-center py-1 px-2 text-gray-500">DL</th>
+                          <th className="text-center py-1 px-2 text-gray-500">Total</th>
+                          <th className="text-center py-1 px-2 text-gray-500">Place</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredExpandedCompetitions.slice(0, 5).map((comp, idx) => (
+                          <tr key={idx} className="border-b border-gray-800">
+                            <td className="py-1 px-2 text-gray-400">{formatDate(comp.date)}</td>
+                            <td className="py-1 px-2 text-gray-300 max-w-[150px] truncate">{comp.meet_name}</td>
+                            <td className="py-1 px-2 text-center text-green-400">{comp.best3_squat_kg || '-'}</td>
+                            <td className="py-1 px-2 text-center text-blue-400">{comp.best3_bench_kg || '-'}</td>
+                            <td className="py-1 px-2 text-center text-red-400">{comp.best3_deadlift_kg || '-'}</td>
+                            <td className="py-1 px-2 text-center text-purple-400 font-semibold">{comp.total_kg || '-'}</td>
+                            <td className="py-1 px-2 text-center text-gray-400">{comp.place || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {filteredExpandedCompetitions.length > 5 && (
+                      <div className="text-center mt-2">
+                        <a
+                          href={`/lifter/${encodeURIComponent(expandedProfile.name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary-500 hover:underline"
+                        >
+                          View all {filteredExpandedCompetitions.length} competitions →
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  // Render expanded profile for tiles view
+  const renderExpandedProfileTiles = () => {
+    if (!expandedLifter) return null;
+
+    // Loading state
+    if (isLoadingProfile) {
+      return (
+        <div className="col-span-full bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+          <div className="flex items-center gap-2 text-gray-400">
+            <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
+            <span>Loading profile...</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (!expandedProfile) return null;
+
+    return (
+      <div className="col-span-full bg-gray-800/50 rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500">
+        {/* Same content as list view */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-white">{expandedProfile.name}</h3>
+            <p className="text-sm text-gray-400">
+              {expandedProfile.sex} • {expandedProfile.country}
+              {weightClass && <span className="ml-2 text-primary-400">• Filtered to {weightClass} kg</span>}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right text-sm text-gray-500">
+              {filteredExpandedCompetitions.length} of {expandedProfile.competitions.length} competitions
+            </div>
+            <button
+              onClick={() => setExpandedLifter(null)}
+              className="p-1 hover:bg-gray-700 rounded transition-colors"
+              title="Collapse profile"
+            >
+              <svg className="w-5 h-5 text-gray-400 hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {filteredExpandedCompetitions.length > 0 ? (
+          <>
+            {/* Personal Bests Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+              {/* Squat */}
+              <div className="bg-gray-900 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Best Squat</div>
+                <div className="text-xl font-bold text-green-400">{formatWeight(expandedBestLifts?.best_squat?.best3_squat_kg)}</div>
+                {expandedBestLifts?.best_squat && renderAttempts(
+                  expandedBestLifts.best_squat.squat1_kg,
+                  expandedBestLifts.best_squat.squat2_kg,
+                  expandedBestLifts.best_squat.squat3_kg,
+                  'text-green-400/80'
+                )}
+              </div>
+              {/* Bench */}
+              <div className="bg-gray-900 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Best Bench</div>
+                <div className="text-xl font-bold text-blue-400">{formatWeight(expandedBestLifts?.best_bench?.best3_bench_kg)}</div>
+                {expandedBestLifts?.best_bench && renderAttempts(
+                  expandedBestLifts.best_bench.bench1_kg,
+                  expandedBestLifts.best_bench.bench2_kg,
+                  expandedBestLifts.best_bench.bench3_kg,
+                  'text-blue-400/80'
+                )}
+              </div>
+              {/* Deadlift */}
+              <div className="bg-gray-900 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Best Deadlift</div>
+                <div className="text-xl font-bold text-red-400">{formatWeight(expandedBestLifts?.best_deadlift?.best3_deadlift_kg)}</div>
+                {expandedBestLifts?.best_deadlift && renderAttempts(
+                  expandedBestLifts.best_deadlift.deadlift1_kg,
+                  expandedBestLifts.best_deadlift.deadlift2_kg,
+                  expandedBestLifts.best_deadlift.deadlift3_kg,
+                  'text-red-400/80'
+                )}
+              </div>
+              {/* Total */}
+              <div className="bg-gray-900 rounded-lg p-3">
+                <div className="text-xs text-gray-500">Best Total</div>
+                <div className="text-xl font-bold text-purple-400">{formatWeight(expandedBestLifts?.best_total?.total_kg)}</div>
+                <div className="text-xs text-gray-500">{expandedBestLifts?.best_total?.goodlift?.toFixed(2)} IPF GL</div>
+              </div>
+            </div>
+
+            {/* Success Rates & Tendencies Summary */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {/* Squat Stats */}
+              <div className="bg-gray-900 rounded-lg p-2">
+                <div className="text-xs text-gray-500 mb-1">Squat Stats</div>
+                <div className="flex gap-2 text-xs">
+                  {expandedOpenerTendencies?.squat && (
+                    <span className="text-green-400">Open: {expandedOpenerTendencies.squat.average.toFixed(0)}%</span>
+                  )}
+                  {expandedSuccessRates?.squat?.attempt1 && (
+                    <span className={getRateColor(expandedSuccessRates.squat.attempt1.rate)}>
+                      1st: {expandedSuccessRates.squat.attempt1.rate.toFixed(0)}%
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* Bench Stats */}
+              <div className="bg-gray-900 rounded-lg p-2">
+                <div className="text-xs text-gray-500 mb-1">Bench Stats</div>
+                <div className="flex gap-2 text-xs">
+                  {expandedOpenerTendencies?.bench && (
+                    <span className="text-blue-400">Open: {expandedOpenerTendencies.bench.average.toFixed(0)}%</span>
+                  )}
+                  {expandedSuccessRates?.bench?.attempt1 && (
+                    <span className={getRateColor(expandedSuccessRates.bench.attempt1.rate)}>
+                      1st: {expandedSuccessRates.bench.attempt1.rate.toFixed(0)}%
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* Deadlift Stats */}
+              <div className="bg-gray-900 rounded-lg p-2">
+                <div className="text-xs text-gray-500 mb-1">Deadlift Stats</div>
+                <div className="flex gap-2 text-xs">
+                  {expandedOpenerTendencies?.deadlift && (
+                    <span className="text-red-400">Open: {expandedOpenerTendencies.deadlift.average.toFixed(0)}%</span>
+                  )}
+                  {expandedSuccessRates?.deadlift?.attempt1 && (
+                    <span className={getRateColor(expandedSuccessRates.deadlift.attempt1.rate)}>
+                      1st: {expandedSuccessRates.deadlift.attempt1.rate.toFixed(0)}%
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Link to full profile */}
+            <div className="text-center">
+              <a
+                href={`/lifter/${encodeURIComponent(expandedProfile.name)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary-500 hover:underline"
+              >
+                View full profile →
+              </a>
+            </div>
+          </>
+        ) : (
+          <p className="text-yellow-500 text-sm">No competition data in this weight class</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -1075,6 +1704,7 @@ export function Scout() {
               <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-700">
+                <th className="w-8 py-2 px-1"></th>
                 <th
                   className="text-left py-2 px-2 text-gray-400 font-medium cursor-pointer hover:text-white transition-colors select-none"
                   onClick={() => handleSort('name')}
@@ -1115,83 +1745,92 @@ export function Scout() {
             </thead>
             <tbody>
               {getSortedData().map((lifter) => (
-                <tr key={lifter.name} className="border-b border-gray-800 hover:bg-gray-800/50">
-                  <td className="py-2 px-2">
-                    <a
-                      href={`/lifter/${encodeURIComponent(lifter.name)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-white hover:text-primary-500 transition-colors"
-                    >
-                      {lifter.name}
-                    </a>
-                    <div className="text-xs text-gray-500">Meets: {lifter.total_competitions}</div>
-                  </td>
-                  <td className="py-2 px-2">
-                    {lifter.best_squat ? (
-                      <div>
-                        <div className="font-semibold text-green-400">{lifter.best_squat.best3_squat_kg} kg</div>
-                        {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
-                        <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_squat.date)}</div>
-                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_squat.meet_name}</div>
-                      </div>
-                    ) : <span className="text-gray-600">-</span>}
-                  </td>
-                  <td className="py-2 px-2">
-                    {lifter.best_bench ? (
-                      <div>
-                        <div className="font-semibold text-blue-400">{lifter.best_bench.best3_bench_kg} kg</div>
-                        {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
-                        <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_bench.date)}</div>
-                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_bench.meet_name}</div>
-                      </div>
-                    ) : <span className="text-gray-600">-</span>}
-                  </td>
-                  <td className="py-2 px-2">
-                    {lifter.best_deadlift ? (
-                      <div>
-                        <div className="font-semibold text-red-400">{lifter.best_deadlift.best3_deadlift_kg} kg</div>
-                        {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
-                        <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_deadlift.date)}</div>
-                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_deadlift.meet_name}</div>
-                      </div>
-                    ) : <span className="text-gray-600">-</span>}
-                  </td>
-                  <td className="py-2 px-2">
-                    {lifter.best_total ? (
-                      <div>
-                        <div className="font-semibold text-purple-400">{lifter.best_total.total_kg} kg</div>
-                        <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {formatDate(lifter.best_total.date)}
-                          {lifter.best_total.weight_class_kg ? (
-                            <span className="ml-1 text-gray-400">@ {lifter.best_total.weight_class_kg}</span>
-                          ) : lifter.best_total.bodyweight_kg ? (
-                            <span className="ml-1 text-gray-400">BW {lifter.best_total.bodyweight_kg}</span>
-                          ) : null}
+                <React.Fragment key={lifter.name}>
+                  <tr className={`border-b border-gray-800 hover:bg-gray-800/50 ${expandedLifter === lifter.name ? 'bg-gray-800/30' : ''}`}>
+                    <td className="py-2 px-1">
+                      <ChevronIcon
+                        expanded={expandedLifter === lifter.name}
+                        onClick={() => toggleExpandedLifter(lifter.name)}
+                      />
+                    </td>
+                    <td className="py-2 px-2">
+                      <a
+                        href={`/lifter/${encodeURIComponent(lifter.name)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-white hover:text-primary-500 transition-colors"
+                      >
+                        {lifter.name}
+                      </a>
+                      <div className="text-xs text-gray-500">Meets: {lifter.total_competitions}</div>
+                    </td>
+                    <td className="py-2 px-2">
+                      {lifter.best_squat ? (
+                        <div>
+                          <div className="font-semibold text-green-400">{lifter.best_squat.best3_squat_kg} kg</div>
+                          {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
+                          <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_squat.date)}</div>
+                          <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_squat.meet_name}</div>
                         </div>
-                        <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_total.meet_name}</div>
-                      </div>
-                    ) : <span className="text-gray-600">-</span>}
-                  </td>
-                  {(() => {
-                    const prediction = predictions.get(lifter.name);
-                    return (
-                      <td className="py-2 px-2">
-                        {prediction?.hasEnoughData ? (
-                          <div>
-                            <div className="font-semibold text-yellow-400">{prediction.predictedTotal} kg</div>
-                            <div className="text-xs text-gray-500">
-                              {prediction.competitionsInRange} over {trendRange}mo
-                            </div>
+                      ) : <span className="text-gray-600">-</span>}
+                    </td>
+                    <td className="py-2 px-2">
+                      {lifter.best_bench ? (
+                        <div>
+                          <div className="font-semibold text-blue-400">{lifter.best_bench.best3_bench_kg} kg</div>
+                          {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
+                          <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_bench.date)}</div>
+                          <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_bench.meet_name}</div>
+                        </div>
+                      ) : <span className="text-gray-600">-</span>}
+                    </td>
+                    <td className="py-2 px-2">
+                      {lifter.best_deadlift ? (
+                        <div>
+                          <div className="font-semibold text-red-400">{lifter.best_deadlift.best3_deadlift_kg} kg</div>
+                          {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
+                          <div className="text-xs text-gray-500 mt-0.5">{formatDate(lifter.best_deadlift.date)}</div>
+                          <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_deadlift.meet_name}</div>
+                        </div>
+                      ) : <span className="text-gray-600">-</span>}
+                    </td>
+                    <td className="py-2 px-2">
+                      {lifter.best_total ? (
+                        <div>
+                          <div className="font-semibold text-purple-400">{lifter.best_total.total_kg} kg</div>
+                          <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {formatDate(lifter.best_total.date)}
+                            {lifter.best_total.weight_class_kg ? (
+                              <span className="ml-1 text-gray-400">@ {lifter.best_total.weight_class_kg}</span>
+                            ) : lifter.best_total.bodyweight_kg ? (
+                              <span className="ml-1 text-gray-400">BW {lifter.best_total.bodyweight_kg}</span>
+                            ) : null}
                           </div>
-                        ) : (
-                          <div className="text-xs text-gray-500">N/A</div>
-                        )}
-                      </td>
-                    );
-                  })()}
-                </tr>
+                          <div className="text-xs text-gray-600 truncate max-w-[150px]">{lifter.best_total.meet_name}</div>
+                        </div>
+                      ) : <span className="text-gray-600">-</span>}
+                    </td>
+                    {(() => {
+                      const prediction = predictions.get(lifter.name);
+                      return (
+                        <td className="py-2 px-2">
+                          {prediction?.hasEnoughData ? (
+                            <div>
+                              <div className="font-semibold text-yellow-400">{prediction.predictedTotal} kg</div>
+                              <div className="text-xs text-gray-500">
+                                {prediction.competitionsInRange} over {trendRange}mo
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-500">N/A</div>
+                          )}
+                        </td>
+                      );
+                    })()}
+                  </tr>
+                  {expandedLifter === lifter.name && renderExpandedProfile()}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -1202,111 +1841,120 @@ export function Scout() {
           {viewMode === 'tiles' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {getSortedData().map((lifter) => (
-                <div key={lifter.name} className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-primary-500 transition-colors">
-                  <a
-                    href={`/lifter/${encodeURIComponent(lifter.name)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-lg font-bold text-white hover:text-primary-500 transition-colors block"
-                  >
-                    {lifter.name}
-                  </a>
-                  <div className="text-xs text-gray-500 mb-3">Meets: {lifter.total_competitions}</div>
-
-                  <div className="space-y-3">
-                    {/* S/B/D with attempts */}
-                    <div className="grid grid-cols-3 gap-2">
-                      {/* Squat */}
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1">Squat</div>
-                        {lifter.best_squat ? (
-                          <>
-                            <div className="font-semibold text-green-400">{lifter.best_squat.best3_squat_kg} kg</div>
-                            {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
-                          </>
-                        ) : <span className="text-gray-600">-</span>}
-                      </div>
-
-                      {/* Bench */}
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1">Bench</div>
-                        {lifter.best_bench ? (
-                          <>
-                            <div className="font-semibold text-blue-400">{lifter.best_bench.best3_bench_kg} kg</div>
-                            {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
-                          </>
-                        ) : <span className="text-gray-600">-</span>}
-                      </div>
-
-                      {/* Deadlift */}
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1">Deadlift</div>
-                        {lifter.best_deadlift ? (
-                          <>
-                            <div className="font-semibold text-red-400">{lifter.best_deadlift.best3_deadlift_kg} kg</div>
-                            {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
-                          </>
-                        ) : <span className="text-gray-600">-</span>}
-                      </div>
+                <React.Fragment key={lifter.name}>
+                  <div className={`bg-gray-800 rounded-lg p-4 border transition-colors ${expandedLifter === lifter.name ? 'border-primary-500' : 'border-gray-700 hover:border-primary-500'}`}>
+                    <div className="flex items-start justify-between mb-1">
+                      <a
+                        href={`/lifter/${encodeURIComponent(lifter.name)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-lg font-bold text-white hover:text-primary-500 transition-colors block"
+                      >
+                        {lifter.name}
+                      </a>
+                      <ChevronIcon
+                        expanded={expandedLifter === lifter.name}
+                        onClick={() => toggleExpandedLifter(lifter.name)}
+                      />
                     </div>
+                    <div className="text-xs text-gray-500 mb-3">Meets: {lifter.total_competitions}</div>
 
-                    {/* Total and Prediction - Same Row */}
-                    <div className="pt-2 border-t border-gray-700">
-                      <div className="grid grid-cols-2 gap-3">
-                        {/* Total */}
+                    <div className="space-y-3">
+                      {/* S/B/D with attempts */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* Squat */}
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">{rankingMethod === 'total' ? 'Total' : 'IPF GL'}</div>
-                          {lifter.best_total ? (
-                            <div>
-                              {rankingMethod === 'total' ? (
-                                <>
-                                  <div className="font-bold text-purple-400 text-lg">{formatWeight(lifter.best_total.total_kg)}</div>
-                                  <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="font-bold text-purple-400 text-lg">{formatIPFGL(lifter.best_total.goodlift)}</div>
-                                  <div className="text-xs text-gray-500">{formatWeight(lifter.best_total.total_kg)}</div>
-                                </>
-                              )}
-                              <div className="text-xs text-gray-500 mt-1">
-                                {formatDate(lifter.best_total.date)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {lifter.best_total.weight_class_kg ? (
-                                  <span>@ {lifter.best_total.weight_class_kg} kg</span>
-                                ) : lifter.best_total.bodyweight_kg ? (
-                                  <span>BW {lifter.best_total.bodyweight_kg} kg</span>
-                                ) : null}
-                              </div>
-                              <div className="text-xs text-gray-600 line-clamp-2 mt-0.5">{lifter.best_total.meet_name}</div>
-                            </div>
+                          <div className="text-xs text-gray-500 mb-1">Squat</div>
+                          {lifter.best_squat ? (
+                            <>
+                              <div className="font-semibold text-green-400">{lifter.best_squat.best3_squat_kg} kg</div>
+                              {renderAttempts(lifter.best_squat.squat1_kg, lifter.best_squat.squat2_kg, lifter.best_squat.squat3_kg, 'text-green-400/80')}
+                            </>
                           ) : <span className="text-gray-600">-</span>}
                         </div>
 
-                        {/* Prediction */}
-                        {(() => {
-                          const prediction = predictions.get(lifter.name);
-                          return (
-                            <div>
-                              <div className="text-xs text-gray-500 mb-1">Predicted</div>
-                              {prediction?.hasEnoughData ? (
-                                <div>
-                                  <div className="font-bold text-yellow-400 text-lg">{formatWeight(prediction.predictedTotal!)}</div>
-                                  <div className="text-xs text-gray-500 mt-1">
-                                    {prediction.competitionsInRange} {prediction.competitionsInRange === 1 ? 'comp' : 'comps'} over {trendRange}mo
-                                  </div>
+                        {/* Bench */}
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Bench</div>
+                          {lifter.best_bench ? (
+                            <>
+                              <div className="font-semibold text-blue-400">{lifter.best_bench.best3_bench_kg} kg</div>
+                              {renderAttempts(lifter.best_bench.bench1_kg, lifter.best_bench.bench2_kg, lifter.best_bench.bench3_kg, 'text-blue-400/80')}
+                            </>
+                          ) : <span className="text-gray-600">-</span>}
+                        </div>
+
+                        {/* Deadlift */}
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">Deadlift</div>
+                          {lifter.best_deadlift ? (
+                            <>
+                              <div className="font-semibold text-red-400">{lifter.best_deadlift.best3_deadlift_kg} kg</div>
+                              {renderAttempts(lifter.best_deadlift.deadlift1_kg, lifter.best_deadlift.deadlift2_kg, lifter.best_deadlift.deadlift3_kg, 'text-red-400/80')}
+                            </>
+                          ) : <span className="text-gray-600">-</span>}
+                        </div>
+                      </div>
+
+                      {/* Total and Prediction - Same Row */}
+                      <div className="pt-2 border-t border-gray-700">
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Total */}
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">{rankingMethod === 'total' ? 'Total' : 'IPF GL'}</div>
+                            {lifter.best_total ? (
+                              <div>
+                                {rankingMethod === 'total' ? (
+                                  <>
+                                    <div className="font-bold text-purple-400 text-lg">{formatWeight(lifter.best_total.total_kg)}</div>
+                                    <div className="text-xs text-gray-500">{formatIPFGL(lifter.best_total.goodlift)}</div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="font-bold text-purple-400 text-lg">{formatIPFGL(lifter.best_total.goodlift)}</div>
+                                    <div className="text-xs text-gray-500">{formatWeight(lifter.best_total.total_kg)}</div>
+                                  </>
+                                )}
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {formatDate(lifter.best_total.date)}
                                 </div>
-                              ) : (
-                                <div className="text-xs text-gray-500">Not enough data</div>
-                              )}
-                            </div>
-                          );
-                        })()}
+                                <div className="text-xs text-gray-500">
+                                  {lifter.best_total.weight_class_kg ? (
+                                    <span>@ {lifter.best_total.weight_class_kg} kg</span>
+                                  ) : lifter.best_total.bodyweight_kg ? (
+                                    <span>BW {lifter.best_total.bodyweight_kg} kg</span>
+                                  ) : null}
+                                </div>
+                                <div className="text-xs text-gray-600 line-clamp-2 mt-0.5">{lifter.best_total.meet_name}</div>
+                              </div>
+                            ) : <span className="text-gray-600">-</span>}
+                          </div>
+
+                          {/* Prediction */}
+                          {(() => {
+                            const prediction = predictions.get(lifter.name);
+                            return (
+                              <div>
+                                <div className="text-xs text-gray-500 mb-1">Predicted</div>
+                                {prediction?.hasEnoughData ? (
+                                  <div>
+                                    <div className="font-bold text-yellow-400 text-lg">{formatWeight(prediction.predictedTotal!)}</div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {prediction.competitionsInRange} {prediction.competitionsInRange === 1 ? 'comp' : 'comps'} over {trendRange}mo
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-gray-500">Not enough data</div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                  {expandedLifter === lifter.name && renderExpandedProfileTiles()}
+                </React.Fragment>
               ))}
             </div>
           )}
