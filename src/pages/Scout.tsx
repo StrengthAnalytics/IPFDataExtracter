@@ -546,6 +546,22 @@ export function Scout() {
     addToast(`Cleared ${count} lifter${count !== 1 ? 's' : ''}`, 'info');
   };
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      addToast('Link copied to clipboard', 'success');
+    } catch {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = window.location.href;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      addToast('Link copied to clipboard', 'success');
+    }
+  };
+
   const formatWeight = (kg?: number) => kg ? `${kg} kg` : '-';
   const formatDate = (date?: string) => date ? new Date(date).toLocaleDateString() : '-';
   const formatIPFGL = (points?: number) => points ? `${points.toFixed(2)} pts` : '-';
@@ -775,7 +791,7 @@ export function Scout() {
             <h2 className="text-lg font-semibold text-white">
               Selected Lifters ({selectedLifters.length})
             </h2>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {isLoading && (
                 <div className="flex items-center gap-2 text-gray-400">
                   <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
@@ -783,10 +799,20 @@ export function Scout() {
                 </div>
               )}
               <button
+                onClick={handleCopyLink}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                title="Copy shareable link"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                <span className="hidden sm:inline">Copy Link</span>
+              </button>
+              <button
                 onClick={handleClearSelection}
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
-                Clear Selection
+                Clear
               </button>
             </div>
           </div>
