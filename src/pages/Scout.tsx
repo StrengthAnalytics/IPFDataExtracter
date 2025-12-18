@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LifterSearch } from '../components/LifterSearch';
+import { useToast } from '../components/Toast';
 import { api } from '../services/api';
 import type { LifterSearchResult, BestLifts, PredictionAnalysis, CompetitionHistoryItem } from '../types';
 
@@ -230,6 +231,8 @@ const setStorageItem = <T,>(key: string, value: T): void => {
 };
 
 export function Scout() {
+  const { addToast } = useToast();
+
   // Load persisted state from sessionStorage
   const [selectedLifters, setSelectedLifters] = useState<string[]>(() =>
     getStorageItem(STORAGE_KEYS.SELECTED_LIFTERS, [])
@@ -409,16 +412,26 @@ export function Scout() {
   }, [predictionEnabled, selectedLifters, targetDate, trendRange, weightClass]);
 
   const handleAddLifter = (lifter: LifterSearchResult) => {
-    if (!selectedLifters.includes(lifter.name) && selectedLifters.length < 10) {
-      setSelectedLifters([...selectedLifters, lifter.name]);
+    if (selectedLifters.includes(lifter.name)) {
+      addToast(`${lifter.name} is already in your comparison`, 'warning');
+      return;
     }
+    if (selectedLifters.length >= 10) {
+      addToast('Maximum of 10 lifters reached', 'warning');
+      return;
+    }
+    setSelectedLifters([...selectedLifters, lifter.name]);
+    addToast(`Added ${lifter.name}`, 'success');
   };
 
   const handleRemoveLifter = (name: string) => {
     setSelectedLifters(selectedLifters.filter(n => n !== name));
+    addToast(`Removed ${name}`, 'info');
   };
 
   const handleClearSelection = () => {
+    const count = selectedLifters.length;
+
     // Clear state
     setSelectedLifters([]);
     setComparisonData(null);
@@ -436,6 +449,8 @@ export function Scout() {
     threeYearsAgo.setFullYear(now.getFullYear() - 3);
     setEndDate(now.toISOString().split('T')[0]);
     setStartDate(threeYearsAgo.toISOString().split('T')[0]);
+
+    addToast(`Cleared ${count} lifter${count !== 1 ? 's' : ''}`, 'info');
   };
 
   const formatWeight = (kg?: number) => kg ? `${kg} kg` : '-';
