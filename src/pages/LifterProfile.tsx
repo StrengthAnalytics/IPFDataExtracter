@@ -261,7 +261,7 @@ export function LifterProfile() {
     const attempts = [formatAttempt(attempt1), formatAttempt(attempt2), formatAttempt(attempt3)];
 
     return (
-      <div className="flex gap-1 text-xs mt-1">
+      <div className="flex gap-2 text-sm mt-1">
         {attempts.map((attempt, idx) => {
           if (!attempt) return <span key={idx} className="text-gray-700">-</span>;
           return (
@@ -308,16 +308,16 @@ export function LifterProfile() {
           <div className="flex gap-3">
             {/* Main lift info */}
             <div className="flex-1 min-w-0">
-              <div className="text-sm text-gray-400">Best Squat</div>
-              <div className="text-3xl font-bold text-green-400 leading-tight">{formatWeight(profile.best_squat_kg)}</div>
+              <div className="text-base text-gray-400">Best Squat</div>
+              <div className="text-4xl font-bold text-green-400 leading-tight">{formatWeight(profile.best_squat_kg)}</div>
               {bestLifts?.best_squat && renderAttempts(
                 bestLifts.best_squat.squat1_kg,
                 bestLifts.best_squat.squat2_kg,
                 bestLifts.best_squat.squat3_kg,
                 'text-green-400/80'
               )}
-              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
-              <div className="text-sm text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
+              <div className="text-base text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
+              <div className="text-base text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
             </div>
             {/* Stats columns */}
             <div className="flex gap-1.5">
@@ -373,16 +373,16 @@ export function LifterProfile() {
         <div className="card p-4">
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-sm text-gray-400">Best Bench</div>
-              <div className="text-3xl font-bold text-blue-400 leading-tight">{formatWeight(profile.best_bench_kg)}</div>
+              <div className="text-base text-gray-400">Best Bench</div>
+              <div className="text-4xl font-bold text-blue-400 leading-tight">{formatWeight(profile.best_bench_kg)}</div>
               {bestLifts?.best_bench && renderAttempts(
                 bestLifts.best_bench.bench1_kg,
                 bestLifts.best_bench.bench2_kg,
                 bestLifts.best_bench.bench3_kg,
                 'text-blue-400/80'
               )}
-              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
-              <div className="text-sm text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
+              <div className="text-base text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
+              <div className="text-base text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
             </div>
             <div className="flex gap-1.5">
               {successRates?.bench && (
@@ -435,16 +435,16 @@ export function LifterProfile() {
         <div className="card p-4">
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-sm text-gray-400">Best Deadlift</div>
-              <div className="text-3xl font-bold text-red-400 leading-tight">{formatWeight(profile.best_deadlift_kg)}</div>
+              <div className="text-base text-gray-400">Best Deadlift</div>
+              <div className="text-4xl font-bold text-red-400 leading-tight">{formatWeight(profile.best_deadlift_kg)}</div>
               {bestLifts?.best_deadlift && renderAttempts(
                 bestLifts.best_deadlift.deadlift1_kg,
                 bestLifts.best_deadlift.deadlift2_kg,
                 bestLifts.best_deadlift.deadlift3_kg,
                 'text-red-400/80'
               )}
-              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
-              <div className="text-sm text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
+              <div className="text-base text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
+              <div className="text-base text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
             </div>
             <div className="flex gap-1.5">
               {successRates?.deadlift && (
@@ -497,10 +497,10 @@ export function LifterProfile() {
         <div className="card p-4">
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-sm text-gray-400">Best Total</div>
-              <div className="text-3xl font-bold text-purple-400 leading-tight">{formatWeight(profile.best_total_kg)}</div>
-              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
-              <div className="text-sm text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
+              <div className="text-base text-gray-400">Best Total</div>
+              <div className="text-4xl font-bold text-purple-400 leading-tight">{formatWeight(profile.best_total_kg)}</div>
+              <div className="text-base text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
+              <div className="text-base text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
             </div>
             <div className="flex flex-col gap-1.5">
               <div>
