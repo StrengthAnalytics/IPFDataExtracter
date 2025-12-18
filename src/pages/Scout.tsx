@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
 import { useToast } from '../components/Toast';
 import { api } from '../services/api';
@@ -212,6 +213,19 @@ const STORAGE_KEYS = {
   SORT_DIRECTION: 'scout_sort_direction',
 };
 
+// URL param keys (short for cleaner URLs)
+const URL_PARAMS = {
+  LIFTERS: 'lifters',
+  WEIGHT_CLASS: 'wc',
+  AGGREGATION: 'agg',
+  RANKING: 'rank',
+  VIEW: 'view',
+  SORT: 'sort',
+  SORT_DIR: 'dir',
+  TARGET_DATE: 'target',
+  TREND_RANGE: 'range',
+};
+
 // Helper functions for sessionStorage
 const getStorageItem = <T,>(key: string, defaultValue: T): T => {
   try {
@@ -232,41 +246,77 @@ const setStorageItem = <T,>(key: string, value: T): void => {
 
 export function Scout() {
   const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Load persisted state from sessionStorage
-  const [selectedLifters, setSelectedLifters] = useState<string[]>(() =>
-    getStorageItem(STORAGE_KEYS.SELECTED_LIFTERS, [])
-  );
+  // Helper to get default date range
+  const getDefaultDates = () => {
+    const now = new Date();
+    const threeYearsAgo = new Date();
+    threeYearsAgo.setFullYear(now.getFullYear() - 3);
+    return {
+      start: threeYearsAgo.toISOString().split('T')[0],
+      end: now.toISOString().split('T')[0],
+    };
+  };
+
+  // Initialize state from URL params, falling back to sessionStorage, then defaults
+  const [selectedLifters, setSelectedLifters] = useState<string[]>(() => {
+    const urlLifters = searchParams.get(URL_PARAMS.LIFTERS);
+    if (urlLifters) return urlLifters.split(',').filter(Boolean);
+    return getStorageItem(STORAGE_KEYS.SELECTED_LIFTERS, []);
+  });
+
   const [comparisonData, setComparisonData] = useState<BestLifts[] | null>(null);
+
   const [startDate, setStartDate] = useState<string>(() =>
-    getStorageItem(STORAGE_KEYS.START_DATE, '')
+    getStorageItem(STORAGE_KEYS.START_DATE, getDefaultDates().start)
   );
   const [endDate, setEndDate] = useState<string>(() =>
-    getStorageItem(STORAGE_KEYS.END_DATE, '')
+    getStorageItem(STORAGE_KEYS.END_DATE, getDefaultDates().end)
   );
-  const [weightClass, setWeightClass] = useState<string>(() =>
-    getStorageItem(STORAGE_KEYS.WEIGHT_CLASS, '')
-  );
+
+  const [weightClass, setWeightClass] = useState<string>(() => {
+    const urlWc = searchParams.get(URL_PARAMS.WEIGHT_CLASS);
+    if (urlWc) return urlWc;
+    return getStorageItem(STORAGE_KEYS.WEIGHT_CLASS, '');
+  });
+
   const [weightClasses, setWeightClasses] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [sortColumn, setSortColumn] = useState<SortColumn>(() =>
-    getStorageItem(STORAGE_KEYS.SORT_COLUMN, 'prediction')
-  );
-  const [sortDirection, setSortDirection] = useState<SortDirection>(() =>
-    getStorageItem(STORAGE_KEYS.SORT_DIRECTION, 'desc')
-  );
+
+  const [sortColumn, setSortColumn] = useState<SortColumn>(() => {
+    const urlSort = searchParams.get(URL_PARAMS.SORT) as SortColumn | null;
+    if (urlSort && ['name', 'squat', 'bench', 'deadlift', 'total', 'meets', 'prediction'].includes(urlSort)) {
+      return urlSort;
+    }
+    return getStorageItem(STORAGE_KEYS.SORT_COLUMN, 'prediction');
+  });
+
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+    const urlDir = searchParams.get(URL_PARAMS.SORT_DIR) as SortDirection | null;
+    if (urlDir && ['asc', 'desc'].includes(urlDir)) return urlDir;
+    return getStorageItem(STORAGE_KEYS.SORT_DIRECTION, 'desc');
+  });
+
   const [useFuzzySearch, setUseFuzzySearch] = useState(false);
   const [showFuzzyInfo, setShowFuzzyInfo] = useState(false);
   const [showComparisonInfo, setShowComparisonInfo] = useState(false);
-  const [aggregationMode, setAggregationMode] = useState<AggregationMode>(() =>
-    getStorageItem(STORAGE_KEYS.AGGREGATION_MODE, 'byComp')
-  );
-  const [rankingMethod, setRankingMethod] = useState<RankingMethod>(() =>
-    getStorageItem(STORAGE_KEYS.RANKING_METHOD, 'total')
-  );
 
-  // Set responsive default: tiles for mobile, list for desktop (with persistence)
+  const [aggregationMode, setAggregationMode] = useState<AggregationMode>(() => {
+    const urlAgg = searchParams.get(URL_PARAMS.AGGREGATION) as AggregationMode | null;
+    if (urlAgg && ['byLift', 'byComp'].includes(urlAgg)) return urlAgg;
+    return getStorageItem(STORAGE_KEYS.AGGREGATION_MODE, 'byComp');
+  });
+
+  const [rankingMethod, setRankingMethod] = useState<RankingMethod>(() => {
+    const urlRank = searchParams.get(URL_PARAMS.RANKING) as RankingMethod | null;
+    if (urlRank && ['total', 'ipfgl'].includes(urlRank)) return urlRank;
+    return getStorageItem(STORAGE_KEYS.RANKING_METHOD, 'total');
+  });
+
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const urlView = searchParams.get(URL_PARAMS.VIEW) as ViewMode | null;
+    if (urlView && ['list', 'tiles'].includes(urlView)) return urlView;
     const saved = getStorageItem<ViewMode | null>(STORAGE_KEYS.VIEW_MODE, null);
     if (saved) return saved;
     return window.innerWidth < 768 ? 'tiles' : 'list';
@@ -274,28 +324,68 @@ export function Scout() {
 
   // Prediction feature state - always enabled
   const [predictionEnabled] = useState(true);
+
   const [targetDate, setTargetDate] = useState<string>(() => {
-    // Default to today
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    const urlTarget = searchParams.get(URL_PARAMS.TARGET_DATE);
+    if (urlTarget) return urlTarget;
+    return new Date().toISOString().split('T')[0];
   });
-  const [trendRange, setTrendRange] = useState<TrendRange>(18);
+
+  const [trendRange, setTrendRange] = useState<TrendRange>(() => {
+    const urlRange = searchParams.get(URL_PARAMS.TREND_RANGE);
+    if (urlRange && ['12', '18', '24'].includes(urlRange)) {
+      return parseInt(urlRange) as TrendRange;
+    }
+    return 18;
+  });
+
   const [predictions, setPredictions] = useState<Map<string, PredictionAnalysis>>(new Map());
   const [isPredicting, setIsPredicting] = useState(false);
 
-  // Initialize date defaults (last 3 years to current) - only if not already set
-  useEffect(() => {
-    if (!startDate || !endDate) {
-      const now = new Date();
-      const threeYearsAgo = new Date();
-      threeYearsAgo.setFullYear(now.getFullYear() - 3);
+  // Update URL params when state changes
+  const updateUrlParams = useCallback(() => {
+    const params = new URLSearchParams();
 
-      if (!endDate) setEndDate(now.toISOString().split('T')[0]);
-      if (!startDate) setStartDate(threeYearsAgo.toISOString().split('T')[0]);
+    // Only add params that differ from defaults
+    if (selectedLifters.length > 0) {
+      params.set(URL_PARAMS.LIFTERS, selectedLifters.join(','));
     }
-  }, []);
+    if (weightClass) {
+      params.set(URL_PARAMS.WEIGHT_CLASS, weightClass);
+    }
+    if (aggregationMode !== 'byComp') {
+      params.set(URL_PARAMS.AGGREGATION, aggregationMode);
+    }
+    if (rankingMethod !== 'total') {
+      params.set(URL_PARAMS.RANKING, rankingMethod);
+    }
+    if (viewMode !== (window.innerWidth < 768 ? 'tiles' : 'list')) {
+      params.set(URL_PARAMS.VIEW, viewMode);
+    }
+    if (sortColumn !== 'prediction') {
+      params.set(URL_PARAMS.SORT, sortColumn);
+    }
+    if (sortDirection !== 'desc') {
+      params.set(URL_PARAMS.SORT_DIR, sortDirection);
+    }
+    // Only include target date if it's in the future
+    const today = new Date().toISOString().split('T')[0];
+    if (targetDate !== today) {
+      params.set(URL_PARAMS.TARGET_DATE, targetDate);
+    }
+    if (trendRange !== 18) {
+      params.set(URL_PARAMS.TREND_RANGE, String(trendRange));
+    }
 
-  // Persist state to sessionStorage
+    setSearchParams(params, { replace: true });
+  }, [selectedLifters, weightClass, aggregationMode, rankingMethod, viewMode, sortColumn, sortDirection, targetDate, trendRange, setSearchParams]);
+
+  // Sync URL when state changes
+  useEffect(() => {
+    updateUrlParams();
+  }, [updateUrlParams]);
+
+  // Persist to sessionStorage as backup
   useEffect(() => {
     setStorageItem(STORAGE_KEYS.SELECTED_LIFTERS, selectedLifters);
   }, [selectedLifters]);
@@ -449,6 +539,9 @@ export function Scout() {
     threeYearsAgo.setFullYear(now.getFullYear() - 3);
     setEndDate(now.toISOString().split('T')[0]);
     setStartDate(threeYearsAgo.toISOString().split('T')[0]);
+
+    // Clear URL params
+    setSearchParams(new URLSearchParams(), { replace: true });
 
     addToast(`Cleared ${count} lifter${count !== 1 ? 's' : ''}`, 'info');
   };
