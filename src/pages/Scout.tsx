@@ -345,7 +345,7 @@ export function Scout() {
 
   // Auto-update comparison when filters or lifters change
   useEffect(() => {
-    if (selectedLifters.length < 2) {
+    if (selectedLifters.length < 1) {
       setComparisonData(null);
       return;
     }
@@ -416,8 +416,8 @@ export function Scout() {
       addToast(`${lifter.name} is already in your comparison`, 'warning');
       return;
     }
-    if (selectedLifters.length >= 10) {
-      addToast('Maximum of 10 lifters reached', 'warning');
+    if (selectedLifters.length >= 14) {
+      addToast('Maximum of 14 lifters reached', 'warning');
       return;
     }
     setSelectedLifters([...selectedLifters, lifter.name]);
@@ -612,7 +612,7 @@ export function Scout() {
             weightClass={weightClass || undefined}
             useFuzzySearch={useFuzzySearch}
           />
-          <p className="text-xs text-gray-500 mt-2">You can add up to 10 lifters</p>
+          <p className="text-xs text-gray-500 mt-2">You can add up to 14 lifters</p>
 
           {/* Filter Criteria */}
           <div className="mt-6 pt-6">
@@ -710,11 +710,6 @@ export function Scout() {
               </div>
             ))}
           </div>
-          {selectedLifters.length === 1 && (
-            <div className="mt-3 text-sm text-gray-400">
-              Add at least one more lifter to see comparison
-            </div>
-          )}
         </div>
       )}
 
