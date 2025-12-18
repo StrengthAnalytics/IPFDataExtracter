@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
 import { useToast } from '../components/Toast';
+import { ScoutListSkeleton, ScoutTilesSkeleton } from '../components/Skeleton';
 import { api } from '../services/api';
 import type { LifterSearchResult, BestLifts, PredictionAnalysis, CompetitionHistoryItem } from '../types';
 
@@ -829,6 +830,18 @@ export function Scout() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Comparison Results - Loading Skeleton */}
+      {isLoading && selectedLifters.length >= 1 && !comparisonData && (
+        <div className="card">
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <h2 className="text-lg font-semibold text-white">Loading Comparison...</h2>
+            </div>
+          </div>
+          {viewMode === 'list' ? <ScoutListSkeleton /> : <ScoutTilesSkeleton />}
         </div>
       )}
 

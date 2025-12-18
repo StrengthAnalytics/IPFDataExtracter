@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
+import { HomeStatsSkeleton } from '../components/Skeleton';
 import { api } from '../services/api';
 import type { LifterSearchResult } from '../types';
 
@@ -109,7 +110,7 @@ export function Home() {
         </div>
 
         {/* Stats */}
-        {stats && (
+        {stats ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
             <div className="card text-center">
               <div className="text-4xl font-bold text-primary-500 mb-2">
@@ -130,6 +131,8 @@ export function Home() {
               <div className="text-gray-400">Latest Competition</div>
             </div>
           </div>
+        ) : (
+          <HomeStatsSkeleton />
         )}
 
         {/* Features */}
