@@ -18,8 +18,17 @@ export interface Competition {
   weight_class_kg: string;
   bodyweight_kg: number;
   best3_squat_kg?: number;
+  squat1_kg?: number;
+  squat2_kg?: number;
+  squat3_kg?: number;
   best3_bench_kg?: number;
+  bench1_kg?: number;
+  bench2_kg?: number;
+  bench3_kg?: number;
   best3_deadlift_kg?: number;
+  deadlift1_kg?: number;
+  deadlift2_kg?: number;
+  deadlift3_kg?: number;
   total_kg?: number;
   dots?: number;
   wilks?: number;
