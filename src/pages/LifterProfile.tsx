@@ -75,6 +75,18 @@ export function LifterProfile() {
     return { classes, hasUnclassed };
   }, [profile?.competitions]);
 
+  // Compute unique equipment types from competitions
+  const uniqueEquipmentTypes = useMemo(() => {
+    if (!profile?.competitions) return [];
+    const equipmentSet = new Set<string>();
+    profile.competitions.forEach(comp => {
+      if (comp.equipment) {
+        equipmentSet.add(comp.equipment);
+      }
+    });
+    return Array.from(equipmentSet).sort();
+  }, [profile?.competitions]);
+
   // Determine if weight class filter should show (multiple classes OR has both classed and unclassed)
   const showWeightClassFilter = useMemo(() => {
     const { classes, hasUnclassed } = uniqueWeightClasses;
@@ -378,7 +390,7 @@ export function LifterProfile() {
       </div>
 
       {/* Filters - only show if multiple options exist */}
-      {(showWeightClassFilter || profile.equipment_types?.length > 1) && (
+      {(showWeightClassFilter || uniqueEquipmentTypes.length > 1) && (
         <div className="mb-6 flex flex-wrap items-center gap-4">
           {showWeightClassFilter && (
             <>
@@ -398,7 +410,7 @@ export function LifterProfile() {
               </select>
             </>
           )}
-          {profile.equipment_types && profile.equipment_types.length > 1 && (
+          {uniqueEquipmentTypes.length > 1 && (
             <>
               <label className="text-sm text-gray-400">Equipment:</label>
               <select
@@ -407,7 +419,7 @@ export function LifterProfile() {
                 onChange={(e) => setEquipment(e.target.value)}
               >
                 <option value="">All</option>
-                {profile.equipment_types.map((eq: string) => (
+                {uniqueEquipmentTypes.map((eq: string) => (
                   <option key={eq} value={eq}>{eq}</option>
                 ))}
               </select>
@@ -626,8 +638,8 @@ export function LifterProfile() {
               <div>
                 <div className="text-[10px] text-gray-500 font-medium mb-1">Classes</div>
                 <div className="flex flex-wrap gap-1 justify-end">
-                  {profile.weight_classes && profile.weight_classes.length > 0 ? (
-                    profile.weight_classes.slice(0, 3).map((wc: string, idx: number) => (
+                  {uniqueWeightClasses.classes.length > 0 ? (
+                    uniqueWeightClasses.classes.slice(0, 3).map((wc: string, idx: number) => (
                       <span key={idx} className="bg-gray-900 px-2 py-0.5 rounded text-sm text-purple-400">{wc}</span>
                     ))
                   ) : (
@@ -638,8 +650,8 @@ export function LifterProfile() {
               <div>
                 <div className="text-[10px] text-gray-500 font-medium mb-1">Equipment</div>
                 <div className="flex flex-wrap gap-1 justify-end">
-                  {profile.equipment_types && profile.equipment_types.length > 0 ? (
-                    profile.equipment_types.map((eq: string, idx: number) => (
+                  {uniqueEquipmentTypes.length > 0 ? (
+                    uniqueEquipmentTypes.map((eq: string, idx: number) => (
                       <span key={idx} className="bg-gray-900 px-2 py-0.5 rounded text-sm text-purple-400">{eq}</span>
                     ))
                   ) : (
