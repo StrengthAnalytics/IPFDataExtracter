@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
 import { useToast } from '../components/Toast';
@@ -349,9 +350,6 @@ export function Scout() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [showAllCompetitions, setShowAllCompetitions] = useState(false);
 
-  // Ref for scroll preservation when collapsing
-  const scrollIntentRef = useRef<{ buttonElement: HTMLElement; viewportOffset: number } | null>(null);
-
   // Update URL params when state changes
   const updateUrlParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -533,32 +531,26 @@ export function Scout() {
     const isCollapsing = expandedLifter === lifterName;
 
     if (isCollapsing && buttonElement) {
-      // Store the button's position relative to viewport before collapsing
-      const rect = buttonElement.getBoundingClientRect();
-      scrollIntentRef.current = { buttonElement, viewportOffset: rect.top };
-    }
+      // Capture the button's viewport position BEFORE any DOM changes
+      const targetOffset = buttonElement.getBoundingClientRect().top;
 
-    if (isCollapsing) {
-      setExpandedLifter(null);
-      setShowAllCompetitions(false);
+      // Use flushSync to make state updates synchronous - DOM will update immediately
+      flushSync(() => {
+        setExpandedLifter(null);
+        setShowAllCompetitions(false);
+      });
+
+      // Now DOM is updated - scroll to keep button at same viewport position
+      const newOffset = buttonElement.getBoundingClientRect().top;
+      const diff = newOffset - targetOffset;
+      if (Math.abs(diff) > 1) {
+        window.scrollBy(0, diff);
+      }
     } else {
       setExpandedLifter(lifterName);
       setShowAllCompetitions(false);
     }
   };
-
-  // Handle scroll preservation after collapse - useLayoutEffect runs before browser paint
-  useLayoutEffect(() => {
-    if (expandedLifter === null && scrollIntentRef.current) {
-      const { buttonElement, viewportOffset } = scrollIntentRef.current;
-      const newRect = buttonElement.getBoundingClientRect();
-      const diff = newRect.top - viewportOffset;
-      if (Math.abs(diff) > 1) {
-        window.scrollBy(0, diff);
-      }
-      scrollIntentRef.current = null;
-    }
-  }, [expandedLifter]);
 
   // Filter expanded profile competitions by weight class
   const filteredExpandedCompetitions = useMemo(() => {
