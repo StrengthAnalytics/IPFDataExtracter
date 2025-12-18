@@ -138,7 +138,6 @@ export function LifterProfile() {
   if (error || !profile) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <div className="text-5xl mb-4">😕</div>
         <h2 className="text-2xl font-bold text-white mb-2">Lifter Not Found</h2>
         <p className="text-gray-400 mb-6">{error || 'Could not find this lifter'}</p>
         <Link to="/" className="btn btn-primary">Back to Home</Link>

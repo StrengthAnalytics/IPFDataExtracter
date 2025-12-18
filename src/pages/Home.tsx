@@ -138,7 +138,6 @@ export function Home() {
         {/* Features */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Link to="/scout" className="card hover:border-primary-500 border border-transparent transition-all group">
-            <div className="text-3xl mb-3">🔍</div>
             <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-primary-500 transition-colors">
               Scout Lifters
             </h3>
@@ -152,7 +151,6 @@ export function Home() {
                  const search = document.querySelector('input');
                  search?.focus();
                }}>
-            <div className="text-3xl mb-3">👤</div>
             <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-primary-500 transition-colors">
               Lifter Profiles
             </h3>
@@ -162,7 +160,6 @@ export function Home() {
           </div>
 
           <Link to="/standards" className="card hover:border-primary-500 border border-transparent transition-all group">
-            <div className="text-3xl mb-3">🎯</div>
             <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-primary-500 transition-colors">
               Strength Standards
             </h3>

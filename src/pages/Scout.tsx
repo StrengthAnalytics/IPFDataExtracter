@@ -1315,7 +1315,6 @@ export function Scout() {
 
       {selectedLifters.length === 0 && (
         <div className="card text-center py-12">
-          <div className="text-5xl mb-4">🔍</div>
           <h3 className="text-xl font-semibold text-white mb-2">Start Scouting</h3>
           <p className="text-gray-400">Search and add lifters to begin comparing their performances</p>
         </div>
