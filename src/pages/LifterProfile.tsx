@@ -304,37 +304,38 @@ export function LifterProfile() {
       {/* Personal Bests */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         {/* Squat Card */}
-        <div className="card p-3">
+        <div className="card p-4">
           <div className="flex gap-3">
             {/* Main lift info */}
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-400">Best Squat</div>
-              <div className="text-2xl font-bold text-green-400 leading-tight">{formatWeight(profile.best_squat_kg)}</div>
+              <div className="text-sm text-gray-400">Best Squat</div>
+              <div className="text-3xl font-bold text-green-400 leading-tight">{formatWeight(profile.best_squat_kg)}</div>
               {bestLifts?.best_squat && renderAttempts(
                 bestLifts.best_squat.squat1_kg,
                 bestLifts.best_squat.squat2_kg,
                 bestLifts.best_squat.squat3_kg,
                 'text-green-400/80'
               )}
-              <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
-              <div className="text-xs text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
+              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
+              <div className="text-sm text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
             </div>
             {/* Stats columns */}
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               {/* Make rates */}
               {successRates?.squat && (
-                <div className="flex flex-col gap-0.5 text-center">
+                <div className="flex flex-col gap-1 text-center">
+                  <div className="text-[10px] text-gray-500 font-medium">Success</div>
                   {[
                     { label: '1st', data: successRates.squat.attempt1 },
                     { label: '2nd', data: successRates.squat.attempt2 },
                     { label: '3rd', data: successRates.squat.attempt3 },
                   ].map(({ label, data }) => (
-                    <div key={label} className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">{label}</div>
+                    <div key={label} className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">{label}</div>
                       {data ? (
-                        <div className={`text-xs font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
+                        <div className={`text-sm font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
                       ) : (
-                        <div className="text-gray-700 text-xs">-</div>
+                        <div className="text-gray-700 text-sm">-</div>
                       )}
                     </div>
                   ))}
@@ -342,23 +343,24 @@ export function LifterProfile() {
               )}
               {/* Opener & Jumps */}
               {(openerTendencies?.squat || jumpPatterns?.squat) && (
-                <div className="flex flex-col gap-0.5 text-center">
+                <div className="flex flex-col gap-1 text-center">
+                  <div className="text-[10px] text-gray-500 font-medium">Jumps</div>
                   {openerTendencies?.squat && (
-                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">Open</div>
-                      <div className="text-xs font-bold text-green-400">{openerTendencies.squat.average.toFixed(0)}%</div>
+                    <div className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">Open</div>
+                      <div className="text-sm font-bold text-green-400">{openerTendencies.squat.average.toFixed(0)}%</div>
                     </div>
                   )}
                   {jumpPatterns?.squat?.firstJump && (
-                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">1→2</div>
-                      <div className="text-xs font-bold text-green-400">+{jumpPatterns.squat.firstJump.average.toFixed(0)}</div>
+                    <div className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">1→2</div>
+                      <div className="text-sm font-bold text-green-400">+{jumpPatterns.squat.firstJump.average.toFixed(0)}</div>
                     </div>
                   )}
                   {jumpPatterns?.squat?.secondJump && (
-                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">2→3</div>
-                      <div className="text-xs font-bold text-green-400">+{jumpPatterns.squat.secondJump.average.toFixed(0)}</div>
+                    <div className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">2→3</div>
+                      <div className="text-sm font-bold text-green-400">+{jumpPatterns.squat.secondJump.average.toFixed(0)}</div>
                     </div>
                   )}
                 </div>
@@ -368,57 +370,59 @@ export function LifterProfile() {
         </div>
 
         {/* Bench Card */}
-        <div className="card p-3">
+        <div className="card p-4">
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-400">Best Bench</div>
-              <div className="text-2xl font-bold text-blue-400 leading-tight">{formatWeight(profile.best_bench_kg)}</div>
+              <div className="text-sm text-gray-400">Best Bench</div>
+              <div className="text-3xl font-bold text-blue-400 leading-tight">{formatWeight(profile.best_bench_kg)}</div>
               {bestLifts?.best_bench && renderAttempts(
                 bestLifts.best_bench.bench1_kg,
                 bestLifts.best_bench.bench2_kg,
                 bestLifts.best_bench.bench3_kg,
                 'text-blue-400/80'
               )}
-              <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
-              <div className="text-xs text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
+              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
+              <div className="text-sm text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               {successRates?.bench && (
-                <div className="flex flex-col gap-0.5 text-center">
+                <div className="flex flex-col gap-1 text-center">
+                  <div className="text-[10px] text-gray-500 font-medium">Success</div>
                   {[
                     { label: '1st', data: successRates.bench.attempt1 },
                     { label: '2nd', data: successRates.bench.attempt2 },
                     { label: '3rd', data: successRates.bench.attempt3 },
                   ].map(({ label, data }) => (
-                    <div key={label} className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">{label}</div>
+                    <div key={label} className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">{label}</div>
                       {data ? (
-                        <div className={`text-xs font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
+                        <div className={`text-sm font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
                       ) : (
-                        <div className="text-gray-700 text-xs">-</div>
+                        <div className="text-gray-700 text-sm">-</div>
                       )}
                     </div>
                   ))}
                 </div>
               )}
               {(openerTendencies?.bench || jumpPatterns?.bench) && (
-                <div className="flex flex-col gap-0.5 text-center">
+                <div className="flex flex-col gap-1 text-center">
+                  <div className="text-[10px] text-gray-500 font-medium">Jumps</div>
                   {openerTendencies?.bench && (
-                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">Open</div>
-                      <div className="text-xs font-bold text-blue-400">{openerTendencies.bench.average.toFixed(0)}%</div>
+                    <div className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">Open</div>
+                      <div className="text-sm font-bold text-blue-400">{openerTendencies.bench.average.toFixed(0)}%</div>
                     </div>
                   )}
                   {jumpPatterns?.bench?.firstJump && (
-                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">1→2</div>
-                      <div className="text-xs font-bold text-blue-400">+{jumpPatterns.bench.firstJump.average.toFixed(0)}</div>
+                    <div className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">1→2</div>
+                      <div className="text-sm font-bold text-blue-400">+{jumpPatterns.bench.firstJump.average.toFixed(0)}</div>
                     </div>
                   )}
                   {jumpPatterns?.bench?.secondJump && (
-                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">2→3</div>
-                      <div className="text-xs font-bold text-blue-400">+{jumpPatterns.bench.secondJump.average.toFixed(0)}</div>
+                    <div className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">2→3</div>
+                      <div className="text-sm font-bold text-blue-400">+{jumpPatterns.bench.secondJump.average.toFixed(0)}</div>
                     </div>
                   )}
                 </div>
@@ -428,57 +432,59 @@ export function LifterProfile() {
         </div>
 
         {/* Deadlift Card */}
-        <div className="card p-3">
+        <div className="card p-4">
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-400">Best Deadlift</div>
-              <div className="text-2xl font-bold text-red-400 leading-tight">{formatWeight(profile.best_deadlift_kg)}</div>
+              <div className="text-sm text-gray-400">Best Deadlift</div>
+              <div className="text-3xl font-bold text-red-400 leading-tight">{formatWeight(profile.best_deadlift_kg)}</div>
               {bestLifts?.best_deadlift && renderAttempts(
                 bestLifts.best_deadlift.deadlift1_kg,
                 bestLifts.best_deadlift.deadlift2_kg,
                 bestLifts.best_deadlift.deadlift3_kg,
                 'text-red-400/80'
               )}
-              <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
-              <div className="text-xs text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
+              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
+              <div className="text-sm text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               {successRates?.deadlift && (
-                <div className="flex flex-col gap-0.5 text-center">
+                <div className="flex flex-col gap-1 text-center">
+                  <div className="text-[10px] text-gray-500 font-medium">Success</div>
                   {[
                     { label: '1st', data: successRates.deadlift.attempt1 },
                     { label: '2nd', data: successRates.deadlift.attempt2 },
                     { label: '3rd', data: successRates.deadlift.attempt3 },
                   ].map(({ label, data }) => (
-                    <div key={label} className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">{label}</div>
+                    <div key={label} className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">{label}</div>
                       {data ? (
-                        <div className={`text-xs font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
+                        <div className={`text-sm font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
                       ) : (
-                        <div className="text-gray-700 text-xs">-</div>
+                        <div className="text-gray-700 text-sm">-</div>
                       )}
                     </div>
                   ))}
                 </div>
               )}
               {(openerTendencies?.deadlift || jumpPatterns?.deadlift) && (
-                <div className="flex flex-col gap-0.5 text-center">
+                <div className="flex flex-col gap-1 text-center">
+                  <div className="text-[10px] text-gray-500 font-medium">Jumps</div>
                   {openerTendencies?.deadlift && (
-                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">Open</div>
-                      <div className="text-xs font-bold text-red-400">{openerTendencies.deadlift.average.toFixed(0)}%</div>
+                    <div className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">Open</div>
+                      <div className="text-sm font-bold text-red-400">{openerTendencies.deadlift.average.toFixed(0)}%</div>
                     </div>
                   )}
                   {jumpPatterns?.deadlift?.firstJump && (
-                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">1→2</div>
-                      <div className="text-xs font-bold text-red-400">+{jumpPatterns.deadlift.firstJump.average.toFixed(0)}</div>
+                    <div className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">1→2</div>
+                      <div className="text-sm font-bold text-red-400">+{jumpPatterns.deadlift.firstJump.average.toFixed(0)}</div>
                     </div>
                   )}
                   {jumpPatterns?.deadlift?.secondJump && (
-                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
-                      <div className="text-[9px] text-gray-500">2→3</div>
-                      <div className="text-xs font-bold text-red-400">+{jumpPatterns.deadlift.secondJump.average.toFixed(0)}</div>
+                    <div className="bg-gray-900 rounded px-2 py-1">
+                      <div className="text-[10px] text-gray-500">2→3</div>
+                      <div className="text-sm font-bold text-red-400">+{jumpPatterns.deadlift.secondJump.average.toFixed(0)}</div>
                     </div>
                   )}
                 </div>
@@ -488,34 +494,38 @@ export function LifterProfile() {
         </div>
 
         {/* Total Card */}
-        <div className="card p-3">
+        <div className="card p-4">
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-xs text-gray-400">Best Total</div>
-              <div className="text-2xl font-bold text-purple-400 leading-tight">{formatWeight(profile.best_total_kg)}</div>
-              <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
-              <div className="text-xs text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
+              <div className="text-sm text-gray-400">Best Total</div>
+              <div className="text-3xl font-bold text-purple-400 leading-tight">{formatWeight(profile.best_total_kg)}</div>
+              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
+              <div className="text-sm text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
             </div>
-            <div className="flex flex-col gap-0.5 text-right">
-              <div className="text-[9px] text-gray-500">Classes</div>
-              <div className="flex flex-wrap gap-0.5 justify-end">
-                {profile.weight_classes && profile.weight_classes.length > 0 ? (
-                  profile.weight_classes.slice(0, 3).map((wc: string, idx: number) => (
-                    <span key={idx} className="text-xs text-purple-400">{wc}</span>
-                  ))
-                ) : (
-                  <span className="text-xs text-gray-600">-</span>
-                )}
+            <div className="flex flex-col gap-1.5">
+              <div>
+                <div className="text-[10px] text-gray-500 font-medium mb-1">Classes</div>
+                <div className="flex flex-wrap gap-1 justify-end">
+                  {profile.weight_classes && profile.weight_classes.length > 0 ? (
+                    profile.weight_classes.slice(0, 3).map((wc: string, idx: number) => (
+                      <span key={idx} className="bg-gray-900 px-2 py-0.5 rounded text-sm text-purple-400">{wc}</span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-gray-600">-</span>
+                  )}
+                </div>
               </div>
-              <div className="text-[9px] text-gray-500 mt-1">Equipment</div>
-              <div className="flex flex-wrap gap-0.5 justify-end">
-                {profile.equipment_types && profile.equipment_types.length > 0 ? (
-                  profile.equipment_types.map((eq: string, idx: number) => (
-                    <span key={idx} className="text-xs text-purple-400">{eq}</span>
-                  ))
-                ) : (
-                  <span className="text-xs text-gray-600">-</span>
-                )}
+              <div>
+                <div className="text-[10px] text-gray-500 font-medium mb-1">Equipment</div>
+                <div className="flex flex-wrap gap-1 justify-end">
+                  {profile.equipment_types && profile.equipment_types.length > 0 ? (
+                    profile.equipment_types.map((eq: string, idx: number) => (
+                      <span key={idx} className="bg-gray-900 px-2 py-0.5 rounded text-sm text-purple-400">{eq}</span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-gray-600">-</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
