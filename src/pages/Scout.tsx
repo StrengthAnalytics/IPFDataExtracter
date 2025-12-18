@@ -534,18 +534,25 @@ export function Scout() {
       // Capture the button's viewport position BEFORE any DOM changes
       const targetOffset = buttonElement.getBoundingClientRect().top;
 
-      // Use flushSync to make state updates synchronous - DOM will update immediately
+      // Use flushSync to make state updates synchronous
       flushSync(() => {
         setExpandedLifter(null);
         setShowAllCompetitions(false);
       });
 
-      // Now DOM is updated - scroll to keep button at same viewport position
-      const newOffset = buttonElement.getBoundingClientRect().top;
-      const diff = newOffset - targetOffset;
-      if (Math.abs(diff) > 1) {
-        window.scrollBy(0, diff);
-      }
+      // Double requestAnimationFrame ensures we run after browser layout & paint
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const newOffset = buttonElement.getBoundingClientRect().top;
+          const diff = newOffset - targetOffset;
+          if (Math.abs(diff) > 1) {
+            window.scrollTo({
+              top: window.scrollY + diff,
+              behavior: 'instant'
+            });
+          }
+        });
+      });
     } else {
       setExpandedLifter(lifterName);
       setShowAllCompetitions(false);
