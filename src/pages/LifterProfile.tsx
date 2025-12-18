@@ -302,207 +302,197 @@ export function LifterProfile() {
       </div>
 
       {/* Personal Bests */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         {/* Squat Card */}
-        <div className="card p-4">
-          <div className="flex gap-4">
+        <div className="card p-3">
+          <div className="flex gap-3">
             {/* Main lift info */}
-            <div className="flex-1">
-              <div className="text-sm text-gray-400">Best Squat</div>
-              <div className="text-4xl font-bold text-green-400">{formatWeight(profile.best_squat_kg)}</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-gray-400">Best Squat</div>
+              <div className="text-2xl font-bold text-green-400 leading-tight">{formatWeight(profile.best_squat_kg)}</div>
               {bestLifts?.best_squat && renderAttempts(
                 bestLifts.best_squat.squat1_kg,
                 bestLifts.best_squat.squat2_kg,
                 bestLifts.best_squat.squat3_kg,
                 'text-green-400/80'
               )}
-              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
-              <div className="text-sm text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
+              <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
+              <div className="text-xs text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
             </div>
-            {/* Make rates - vertical stack */}
-            {successRates?.squat && (
-              <div className="flex flex-col gap-1 text-center min-w-[60px]">
-                {[
-                  { label: '1st', data: successRates.squat.attempt1 },
-                  { label: '2nd', data: successRates.squat.attempt2 },
-                  { label: '3rd', data: successRates.squat.attempt3 },
-                ].map(({ label, data }) => (
-                  <div key={label} className="bg-gray-900 rounded px-2 py-1">
-                    <div className="text-[10px] text-gray-500">{label}</div>
-                    {data ? (
-                      <>
-                        <div className={`text-sm font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
-                        <div className="text-[10px] text-gray-600">{data.made}/{data.total}</div>
-                      </>
-                    ) : (
-                      <div className="text-gray-700 text-sm">-</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Stats columns */}
+            <div className="flex gap-1">
+              {/* Make rates */}
+              {successRates?.squat && (
+                <div className="flex flex-col gap-0.5 text-center">
+                  {[
+                    { label: '1st', data: successRates.squat.attempt1 },
+                    { label: '2nd', data: successRates.squat.attempt2 },
+                    { label: '3rd', data: successRates.squat.attempt3 },
+                  ].map(({ label, data }) => (
+                    <div key={label} className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">{label}</div>
+                      {data ? (
+                        <div className={`text-xs font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
+                      ) : (
+                        <div className="text-gray-700 text-xs">-</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Opener & Jumps */}
+              {(openerTendencies?.squat || jumpPatterns?.squat) && (
+                <div className="flex flex-col gap-0.5 text-center">
+                  {openerTendencies?.squat && (
+                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">Open</div>
+                      <div className="text-xs font-bold text-green-400">{openerTendencies.squat.average.toFixed(0)}%</div>
+                    </div>
+                  )}
+                  {jumpPatterns?.squat?.firstJump && (
+                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">1→2</div>
+                      <div className="text-xs font-bold text-green-400">+{jumpPatterns.squat.firstJump.average.toFixed(0)}</div>
+                    </div>
+                  )}
+                  {jumpPatterns?.squat?.secondJump && (
+                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">2→3</div>
+                      <div className="text-xs font-bold text-green-400">+{jumpPatterns.squat.secondJump.average.toFixed(0)}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          {/* Opener & Jumps */}
-          {(openerTendencies?.squat || jumpPatterns?.squat) && (
-            <div className="mt-3 pt-3 border-t border-gray-700 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
-              {openerTendencies?.squat && (
-                <span>
-                  Opener: <span className="text-green-400 font-medium">{openerTendencies.squat.average.toFixed(0)}%</span>
-                  <span className="text-gray-600 ml-1">({openerTendencies.squat.min.toFixed(0)}-{openerTendencies.squat.max.toFixed(0)}%)</span>
-                </span>
-              )}
-              {jumpPatterns?.squat?.firstJump && (
-                <span>
-                  1st→2nd: <span className="text-green-400 font-medium">+{jumpPatterns.squat.firstJump.average.toFixed(1)}</span>
-                  <span className="text-gray-600 ml-0.5">({jumpPatterns.squat.firstJump.min}-{jumpPatterns.squat.firstJump.max})</span>
-                </span>
-              )}
-              {jumpPatterns?.squat?.secondJump && (
-                <span>
-                  2nd→3rd: <span className="text-green-400 font-medium">+{jumpPatterns.squat.secondJump.average.toFixed(1)}</span>
-                  <span className="text-gray-600 ml-0.5">({jumpPatterns.squat.secondJump.min}-{jumpPatterns.squat.secondJump.max})</span>
-                </span>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Bench Card */}
-        <div className="card p-4">
-          <div className="flex gap-4">
-            {/* Main lift info */}
-            <div className="flex-1">
-              <div className="text-sm text-gray-400">Best Bench</div>
-              <div className="text-4xl font-bold text-blue-400">{formatWeight(profile.best_bench_kg)}</div>
+        <div className="card p-3">
+          <div className="flex gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-gray-400">Best Bench</div>
+              <div className="text-2xl font-bold text-blue-400 leading-tight">{formatWeight(profile.best_bench_kg)}</div>
               {bestLifts?.best_bench && renderAttempts(
                 bestLifts.best_bench.bench1_kg,
                 bestLifts.best_bench.bench2_kg,
                 bestLifts.best_bench.bench3_kg,
                 'text-blue-400/80'
               )}
-              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
-              <div className="text-sm text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
+              <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
+              <div className="text-xs text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
             </div>
-            {/* Make rates - vertical stack */}
-            {successRates?.bench && (
-              <div className="flex flex-col gap-1 text-center min-w-[60px]">
-                {[
-                  { label: '1st', data: successRates.bench.attempt1 },
-                  { label: '2nd', data: successRates.bench.attempt2 },
-                  { label: '3rd', data: successRates.bench.attempt3 },
-                ].map(({ label, data }) => (
-                  <div key={label} className="bg-gray-900 rounded px-2 py-1">
-                    <div className="text-[10px] text-gray-500">{label}</div>
-                    {data ? (
-                      <>
-                        <div className={`text-sm font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
-                        <div className="text-[10px] text-gray-600">{data.made}/{data.total}</div>
-                      </>
-                    ) : (
-                      <div className="text-gray-700 text-sm">-</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="flex gap-1">
+              {successRates?.bench && (
+                <div className="flex flex-col gap-0.5 text-center">
+                  {[
+                    { label: '1st', data: successRates.bench.attempt1 },
+                    { label: '2nd', data: successRates.bench.attempt2 },
+                    { label: '3rd', data: successRates.bench.attempt3 },
+                  ].map(({ label, data }) => (
+                    <div key={label} className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">{label}</div>
+                      {data ? (
+                        <div className={`text-xs font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
+                      ) : (
+                        <div className="text-gray-700 text-xs">-</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(openerTendencies?.bench || jumpPatterns?.bench) && (
+                <div className="flex flex-col gap-0.5 text-center">
+                  {openerTendencies?.bench && (
+                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">Open</div>
+                      <div className="text-xs font-bold text-blue-400">{openerTendencies.bench.average.toFixed(0)}%</div>
+                    </div>
+                  )}
+                  {jumpPatterns?.bench?.firstJump && (
+                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">1→2</div>
+                      <div className="text-xs font-bold text-blue-400">+{jumpPatterns.bench.firstJump.average.toFixed(0)}</div>
+                    </div>
+                  )}
+                  {jumpPatterns?.bench?.secondJump && (
+                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">2→3</div>
+                      <div className="text-xs font-bold text-blue-400">+{jumpPatterns.bench.secondJump.average.toFixed(0)}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          {/* Opener & Jumps */}
-          {(openerTendencies?.bench || jumpPatterns?.bench) && (
-            <div className="mt-3 pt-3 border-t border-gray-700 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
-              {openerTendencies?.bench && (
-                <span>
-                  Opener: <span className="text-blue-400 font-medium">{openerTendencies.bench.average.toFixed(0)}%</span>
-                  <span className="text-gray-600 ml-1">({openerTendencies.bench.min.toFixed(0)}-{openerTendencies.bench.max.toFixed(0)}%)</span>
-                </span>
-              )}
-              {jumpPatterns?.bench?.firstJump && (
-                <span>
-                  1st→2nd: <span className="text-blue-400 font-medium">+{jumpPatterns.bench.firstJump.average.toFixed(1)}</span>
-                  <span className="text-gray-600 ml-0.5">({jumpPatterns.bench.firstJump.min}-{jumpPatterns.bench.firstJump.max})</span>
-                </span>
-              )}
-              {jumpPatterns?.bench?.secondJump && (
-                <span>
-                  2nd→3rd: <span className="text-blue-400 font-medium">+{jumpPatterns.bench.secondJump.average.toFixed(1)}</span>
-                  <span className="text-gray-600 ml-0.5">({jumpPatterns.bench.secondJump.min}-{jumpPatterns.bench.secondJump.max})</span>
-                </span>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Deadlift Card */}
-        <div className="card p-4">
-          <div className="flex gap-4">
-            {/* Main lift info */}
-            <div className="flex-1">
-              <div className="text-sm text-gray-400">Best Deadlift</div>
-              <div className="text-4xl font-bold text-red-400">{formatWeight(profile.best_deadlift_kg)}</div>
+        <div className="card p-3">
+          <div className="flex gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-gray-400">Best Deadlift</div>
+              <div className="text-2xl font-bold text-red-400 leading-tight">{formatWeight(profile.best_deadlift_kg)}</div>
               {bestLifts?.best_deadlift && renderAttempts(
                 bestLifts.best_deadlift.deadlift1_kg,
                 bestLifts.best_deadlift.deadlift2_kg,
                 bestLifts.best_deadlift.deadlift3_kg,
                 'text-red-400/80'
               )}
-              <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
-              <div className="text-sm text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
+              <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
+              <div className="text-xs text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
             </div>
-            {/* Make rates - vertical stack */}
-            {successRates?.deadlift && (
-              <div className="flex flex-col gap-1 text-center min-w-[60px]">
-                {[
-                  { label: '1st', data: successRates.deadlift.attempt1 },
-                  { label: '2nd', data: successRates.deadlift.attempt2 },
-                  { label: '3rd', data: successRates.deadlift.attempt3 },
-                ].map(({ label, data }) => (
-                  <div key={label} className="bg-gray-900 rounded px-2 py-1">
-                    <div className="text-[10px] text-gray-500">{label}</div>
-                    {data ? (
-                      <>
-                        <div className={`text-sm font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
-                        <div className="text-[10px] text-gray-600">{data.made}/{data.total}</div>
-                      </>
-                    ) : (
-                      <div className="text-gray-700 text-sm">-</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="flex gap-1">
+              {successRates?.deadlift && (
+                <div className="flex flex-col gap-0.5 text-center">
+                  {[
+                    { label: '1st', data: successRates.deadlift.attempt1 },
+                    { label: '2nd', data: successRates.deadlift.attempt2 },
+                    { label: '3rd', data: successRates.deadlift.attempt3 },
+                  ].map(({ label, data }) => (
+                    <div key={label} className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">{label}</div>
+                      {data ? (
+                        <div className={`text-xs font-bold ${getRateColor(data.rate)}`}>{data.rate.toFixed(0)}%</div>
+                      ) : (
+                        <div className="text-gray-700 text-xs">-</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(openerTendencies?.deadlift || jumpPatterns?.deadlift) && (
+                <div className="flex flex-col gap-0.5 text-center">
+                  {openerTendencies?.deadlift && (
+                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">Open</div>
+                      <div className="text-xs font-bold text-red-400">{openerTendencies.deadlift.average.toFixed(0)}%</div>
+                    </div>
+                  )}
+                  {jumpPatterns?.deadlift?.firstJump && (
+                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">1→2</div>
+                      <div className="text-xs font-bold text-red-400">+{jumpPatterns.deadlift.firstJump.average.toFixed(0)}</div>
+                    </div>
+                  )}
+                  {jumpPatterns?.deadlift?.secondJump && (
+                    <div className="bg-gray-900 rounded px-1.5 py-0.5">
+                      <div className="text-[9px] text-gray-500">2→3</div>
+                      <div className="text-xs font-bold text-red-400">+{jumpPatterns.deadlift.secondJump.average.toFixed(0)}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          {/* Opener & Jumps */}
-          {(openerTendencies?.deadlift || jumpPatterns?.deadlift) && (
-            <div className="mt-3 pt-3 border-t border-gray-700 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
-              {openerTendencies?.deadlift && (
-                <span>
-                  Opener: <span className="text-red-400 font-medium">{openerTendencies.deadlift.average.toFixed(0)}%</span>
-                  <span className="text-gray-600 ml-1">({openerTendencies.deadlift.min.toFixed(0)}-{openerTendencies.deadlift.max.toFixed(0)}%)</span>
-                </span>
-              )}
-              {jumpPatterns?.deadlift?.firstJump && (
-                <span>
-                  1st→2nd: <span className="text-red-400 font-medium">+{jumpPatterns.deadlift.firstJump.average.toFixed(1)}</span>
-                  <span className="text-gray-600 ml-0.5">({jumpPatterns.deadlift.firstJump.min}-{jumpPatterns.deadlift.firstJump.max})</span>
-                </span>
-              )}
-              {jumpPatterns?.deadlift?.secondJump && (
-                <span>
-                  2nd→3rd: <span className="text-red-400 font-medium">+{jumpPatterns.deadlift.secondJump.average.toFixed(1)}</span>
-                  <span className="text-gray-600 ml-0.5">({jumpPatterns.deadlift.secondJump.min}-{jumpPatterns.deadlift.secondJump.max})</span>
-                </span>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Total Card */}
-        <div className="card p-4">
-          <div className="flex-1">
-            <div className="text-sm text-gray-400">Best Total</div>
-            <div className="text-4xl font-bold text-purple-400">{formatWeight(profile.best_total_kg)}</div>
-            <div className="text-sm text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
-            <div className="text-sm text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
-          </div>
+        <div className="card p-3">
+          <div className="text-xs text-gray-400">Best Total</div>
+          <div className="text-2xl font-bold text-purple-400 leading-tight">{formatWeight(profile.best_total_kg)}</div>
+          <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
+          <div className="text-xs text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
         </div>
       </div>
 
