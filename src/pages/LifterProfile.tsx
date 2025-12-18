@@ -1,60 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { LifterProfileSkeleton } from '../components/Skeleton';
-import type { LifterProfile as LifterProfileType, Competition, BestLifts } from '../types';
-
-interface OpenerTendency {
-  average: number;
-  min: number;
-  max: number;
-  competitions: number;
-}
-
-interface OpenerTendencies {
-  squat: OpenerTendency | null;
-  bench: OpenerTendency | null;
-  deadlift: OpenerTendency | null;
-}
-
-interface JumpStats {
-  average: number;
-  min: number;
-  max: number;
-  count: number;
-}
-
-interface LiftJumps {
-  firstJump: JumpStats | null;
-  secondJump: JumpStats | null;
-}
-
-interface JumpPatterns {
-  squat: LiftJumps | null;
-  bench: LiftJumps | null;
-  deadlift: LiftJumps | null;
-}
-
-interface AttemptRate {
-  rate: number;
-  made: number;
-  total: number;
-}
-
-interface LiftSuccessRates {
-  attempt1: AttemptRate | null;
-  attempt2: AttemptRate | null;
-  attempt3: AttemptRate | null;
-}
-
-interface SuccessRates {
-  squat: LiftSuccessRates | null;
-  bench: LiftSuccessRates | null;
-  deadlift: LiftSuccessRates | null;
-}
+import type { LifterProfile as LifterProfileType, Competition } from '../types';
 
 type CompSortColumn = 'date' | 'meet' | 'federation' | 'squat' | 'bench' | 'deadlift' | 'total' | 'ipfgl' | 'place';
 type SortDirection = 'asc' | 'desc';
+
+interface BestLiftsResult {
+  best_squat: Competition | null;
+  best_bench: Competition | null;
+  best_deadlift: Competition | null;
+  best_total: Competition | null;
+}
 
 export function LifterProfile() {
   const { name } = useParams<{ name: string }>();
@@ -64,13 +22,7 @@ export function LifterProfile() {
   const [sortColumn, setSortColumn] = useState<CompSortColumn>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [weightClass, setWeightClass] = useState<string>('');
-  const [weightClasses, setWeightClasses] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [bestLifts, setBestLifts] = useState<BestLifts | null>(null);
-  const [openerTendencies, setOpenerTendencies] = useState<OpenerTendencies | null>(null);
-  const [jumpPatterns, setJumpPatterns] = useState<JumpPatterns | null>(null);
-  const [successRates, setSuccessRates] = useState<SuccessRates | null>(null);
+  const [equipment, setEquipment] = useState<string>('');
 
   // Load lifter profile
   useEffect(() => {
@@ -88,48 +40,188 @@ export function LifterProfile() {
       .finally(() => setIsLoading(false));
   }, [name]);
 
-  // Load weight classes
-  useEffect(() => {
-    api.getWeightClasses().then((data) => {
-      const allClasses = [
-        ...(data.M || []),
-        ...(data.F || [])
-      ].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => parseFloat(a) - parseFloat(b));
-      setWeightClasses(allClasses);
-    }).catch(err => console.error('Error loading weight classes:', err));
-  }, []);
+  // Get filtered competitions based on weight class and equipment
+  const filteredCompetitions = useMemo(() => {
+    if (!profile?.competitions) return [];
+    let filtered = profile.competitions;
+    if (weightClass) {
+      if (weightClass === '__unclassed__') {
+        filtered = filtered.filter(comp => !comp.weight_class_kg);
+      } else {
+        filtered = filtered.filter(comp => comp.weight_class_kg === weightClass);
+      }
+    }
+    if (equipment) {
+      filtered = filtered.filter(comp => comp.equipment === equipment);
+    }
+    return filtered;
+  }, [profile?.competitions, weightClass, equipment]);
 
-  // Load best lifts with attempts
-  useEffect(() => {
-    if (!name) return;
-    api.getBestLifts(decodeURIComponent(name), 10) // 10 years to get career bests
-      .then(setBestLifts)
-      .catch(err => console.error('Error loading best lifts:', err));
-  }, [name]);
+  // Compute unique weight classes from competitions (including unclassed)
+  const uniqueWeightClasses = useMemo(() => {
+    if (!profile?.competitions) return { classes: [] as string[], hasUnclassed: false };
+    const classSet = new Set<string>();
+    let hasUnclassed = false;
 
-  // Load opener tendencies
-  useEffect(() => {
-    if (!name) return;
-    api.getOpenerTendencies(decodeURIComponent(name))
-      .then(setOpenerTendencies)
-      .catch(err => console.error('Error loading opener tendencies:', err));
-  }, [name]);
+    profile.competitions.forEach(comp => {
+      if (comp.weight_class_kg) {
+        classSet.add(comp.weight_class_kg);
+      } else {
+        hasUnclassed = true;
+      }
+    });
 
-  // Load jump patterns
-  useEffect(() => {
-    if (!name) return;
-    api.getJumpPatterns(decodeURIComponent(name))
-      .then(setJumpPatterns)
-      .catch(err => console.error('Error loading jump patterns:', err));
-  }, [name]);
+    const classes = Array.from(classSet).sort((a, b) => parseFloat(a) - parseFloat(b));
+    return { classes, hasUnclassed };
+  }, [profile?.competitions]);
 
-  // Load attempt success rates
-  useEffect(() => {
-    if (!name) return;
-    api.getAttemptSuccessRates(decodeURIComponent(name))
-      .then(setSuccessRates)
-      .catch(err => console.error('Error loading success rates:', err));
-  }, [name]);
+  // Determine if weight class filter should show (multiple classes OR has both classed and unclassed)
+  const showWeightClassFilter = useMemo(() => {
+    const { classes, hasUnclassed } = uniqueWeightClasses;
+    return classes.length > 1 || (classes.length >= 1 && hasUnclassed);
+  }, [uniqueWeightClasses]);
+
+  // Compute best lifts from filtered competitions
+  const bestLifts = useMemo((): BestLiftsResult | null => {
+    if (filteredCompetitions.length === 0) return null;
+
+    const findBest = (key: 'best3_squat_kg' | 'best3_bench_kg' | 'best3_deadlift_kg' | 'total_kg'): Competition | null => {
+      let best: Competition | null = null;
+      let maxVal = 0;
+      filteredCompetitions.forEach(comp => {
+        const val = comp[key];
+        if (val && val > maxVal) {
+          maxVal = val;
+          best = comp;
+        }
+      });
+      return best;
+    };
+
+    return {
+      best_squat: findBest('best3_squat_kg'),
+      best_bench: findBest('best3_bench_kg'),
+      best_deadlift: findBest('best3_deadlift_kg'),
+      best_total: findBest('total_kg')
+    };
+  }, [filteredCompetitions]);
+
+  // Compute success rates from filtered competitions
+  const successRates = useMemo(() => {
+    if (filteredCompetitions.length === 0) return null;
+
+    const calcRates = (a1Key: keyof Competition, a2Key: keyof Competition, a3Key: keyof Competition) => {
+      let a1Made = 0, a1Total = 0;
+      let a2Made = 0, a2Total = 0;
+      let a3Made = 0, a3Total = 0;
+
+      filteredCompetitions.forEach(comp => {
+        const a1 = comp[a1Key] as number | undefined;
+        const a2 = comp[a2Key] as number | undefined;
+        const a3 = comp[a3Key] as number | undefined;
+
+        if (a1 != null && a1 !== 0) {
+          a1Total++;
+          if (a1 > 0) a1Made++;
+        }
+        if (a2 != null && a2 !== 0) {
+          a2Total++;
+          if (a2 > 0) a2Made++;
+        }
+        if (a3 != null && a3 !== 0) {
+          a3Total++;
+          if (a3 > 0) a3Made++;
+        }
+      });
+
+      return {
+        attempt1: a1Total > 0 ? { rate: (a1Made / a1Total) * 100, made: a1Made, total: a1Total } : null,
+        attempt2: a2Total > 0 ? { rate: (a2Made / a2Total) * 100, made: a2Made, total: a2Total } : null,
+        attempt3: a3Total > 0 ? { rate: (a3Made / a3Total) * 100, made: a3Made, total: a3Total } : null
+      };
+    };
+
+    return {
+      squat: calcRates('squat1_kg', 'squat2_kg', 'squat3_kg'),
+      bench: calcRates('bench1_kg', 'bench2_kg', 'bench3_kg'),
+      deadlift: calcRates('deadlift1_kg', 'deadlift2_kg', 'deadlift3_kg')
+    };
+  }, [filteredCompetitions]);
+
+  // Compute opener tendencies from filtered competitions
+  const openerTendencies = useMemo(() => {
+    if (filteredCompetitions.length === 0) return null;
+
+    const calcTendency = (a1Key: keyof Competition, bestKey: keyof Competition) => {
+      const percentages: number[] = [];
+      filteredCompetitions.forEach(comp => {
+        const a1 = comp[a1Key] as number | undefined;
+        const best = comp[bestKey] as number | undefined;
+        if (!a1 || !best || best <= 0) return;
+        const pct = (Math.abs(a1) / best) * 100;
+        if (pct >= 50 && pct <= 110) percentages.push(pct);
+      });
+      if (percentages.length === 0) return null;
+      return {
+        average: percentages.reduce((a, b) => a + b, 0) / percentages.length,
+        min: Math.min(...percentages),
+        max: Math.max(...percentages),
+        competitions: percentages.length
+      };
+    };
+
+    return {
+      squat: calcTendency('squat1_kg', 'best3_squat_kg'),
+      bench: calcTendency('bench1_kg', 'best3_bench_kg'),
+      deadlift: calcTendency('deadlift1_kg', 'best3_deadlift_kg')
+    };
+  }, [filteredCompetitions]);
+
+  // Compute jump patterns from filtered competitions
+  const jumpPatterns = useMemo(() => {
+    if (filteredCompetitions.length === 0) return null;
+
+    const calcJumps = (a1Key: keyof Competition, a2Key: keyof Competition, a3Key: keyof Competition) => {
+      const firstJumps: number[] = [];
+      const secondJumps: number[] = [];
+
+      filteredCompetitions.forEach(comp => {
+        const a1 = comp[a1Key] as number | undefined;
+        const a2 = comp[a2Key] as number | undefined;
+        const a3 = comp[a3Key] as number | undefined;
+
+        if (a1 != null && a2 != null) {
+          const jump = Math.abs(a2) - Math.abs(a1);
+          if (jump >= -20 && jump <= 30) firstJumps.push(jump);
+        }
+        if (a2 != null && a3 != null) {
+          const jump = Math.abs(a3) - Math.abs(a2);
+          if (jump >= -20 && jump <= 30) secondJumps.push(jump);
+        }
+      });
+
+      const calcStats = (jumps: number[]) => {
+        if (jumps.length === 0) return null;
+        return {
+          average: jumps.reduce((a, b) => a + b, 0) / jumps.length,
+          min: Math.min(...jumps),
+          max: Math.max(...jumps),
+          count: jumps.length
+        };
+      };
+
+      const first = calcStats(firstJumps);
+      const second = calcStats(secondJumps);
+      if (!first && !second) return null;
+      return { firstJump: first, secondJump: second };
+    };
+
+    return {
+      squat: calcJumps('squat1_kg', 'squat2_kg', 'squat3_kg'),
+      bench: calcJumps('bench1_kg', 'bench2_kg', 'bench3_kg'),
+      deadlift: calcJumps('deadlift1_kg', 'deadlift2_kg', 'deadlift3_kg')
+    };
+  }, [filteredCompetitions]);
 
   if (isLoading) {
     return <LifterProfileSkeleton />;
@@ -159,24 +251,8 @@ export function LifterProfile() {
     }
   };
 
-  const getFilteredAndSortedCompetitions = (competitions: Competition[]) => {
-    // First filter by weight class and date range
-    let filtered = competitions;
-
-    if (weightClass) {
-      filtered = filtered.filter(comp => comp.weight_class_kg === weightClass);
-    }
-
-    if (startDate) {
-      filtered = filtered.filter(comp => comp.date >= startDate);
-    }
-
-    if (endDate) {
-      filtered = filtered.filter(comp => comp.date <= endDate);
-    }
-
-    // Then sort
-    return [...filtered].sort((a, b) => {
+  const getSortedCompetitions = (competitions: Competition[]) => {
+    return [...competitions].sort((a, b) => {
       let aValue: number | string = 0;
       let bValue: number | string = 0;
 
@@ -301,6 +377,50 @@ export function LifterProfile() {
         </div>
       </div>
 
+      {/* Filters - only show if multiple options exist */}
+      {(showWeightClassFilter || profile.equipment_types?.length > 1) && (
+        <div className="mb-6 flex flex-wrap items-center gap-4">
+          {showWeightClassFilter && (
+            <>
+              <label className="text-sm text-gray-400">Weight Class:</label>
+              <select
+                className="input w-auto"
+                value={weightClass}
+                onChange={(e) => setWeightClass(e.target.value)}
+              >
+                <option value="">All</option>
+                {uniqueWeightClasses.classes.map((wc: string) => (
+                  <option key={wc} value={wc}>{wc} kg</option>
+                ))}
+                {uniqueWeightClasses.hasUnclassed && (
+                  <option value="__unclassed__">Unclassed (GL)</option>
+                )}
+              </select>
+            </>
+          )}
+          {profile.equipment_types && profile.equipment_types.length > 1 && (
+            <>
+              <label className="text-sm text-gray-400">Equipment:</label>
+              <select
+                className="input w-auto"
+                value={equipment}
+                onChange={(e) => setEquipment(e.target.value)}
+              >
+                <option value="">All</option>
+                {profile.equipment_types.map((eq: string) => (
+                  <option key={eq} value={eq}>{eq}</option>
+                ))}
+              </select>
+            </>
+          )}
+          {(weightClass || equipment) && (
+            <span className="text-sm text-gray-500">
+              ({filteredCompetitions.length} of {profile.competitions.length} competitions)
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Personal Bests */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         {/* Squat Card */}
@@ -309,15 +429,15 @@ export function LifterProfile() {
             {/* Main lift info */}
             <div className="flex-1 min-w-0">
               <div className="text-base text-gray-400">Best Squat</div>
-              <div className="text-4xl font-bold text-green-400 leading-tight">{formatWeight(profile.best_squat_kg)}</div>
+              <div className="text-4xl font-bold text-green-400 leading-tight">{formatWeight(bestLifts?.best_squat?.best3_squat_kg)}</div>
               {bestLifts?.best_squat && renderAttempts(
                 bestLifts.best_squat.squat1_kg,
                 bestLifts.best_squat.squat2_kg,
                 bestLifts.best_squat.squat3_kg,
                 'text-green-400/80'
               )}
-              <div className="text-base text-gray-500 mt-1">{formatDate(profile.best_squat_date)}</div>
-              <div className="text-base text-gray-600 truncate">{profile.best_squat_meet || '-'}</div>
+              <div className="text-base text-gray-500 mt-1">{formatDate(bestLifts?.best_squat?.date)}</div>
+              <div className="text-base text-gray-600 truncate">{bestLifts?.best_squat?.meet_name || '-'}</div>
             </div>
             {/* Stats columns */}
             <div className="flex gap-1.5">
@@ -374,15 +494,15 @@ export function LifterProfile() {
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-base text-gray-400">Best Bench</div>
-              <div className="text-4xl font-bold text-blue-400 leading-tight">{formatWeight(profile.best_bench_kg)}</div>
+              <div className="text-4xl font-bold text-blue-400 leading-tight">{formatWeight(bestLifts?.best_bench?.best3_bench_kg)}</div>
               {bestLifts?.best_bench && renderAttempts(
                 bestLifts.best_bench.bench1_kg,
                 bestLifts.best_bench.bench2_kg,
                 bestLifts.best_bench.bench3_kg,
                 'text-blue-400/80'
               )}
-              <div className="text-base text-gray-500 mt-1">{formatDate(profile.best_bench_date)}</div>
-              <div className="text-base text-gray-600 truncate">{profile.best_bench_meet || '-'}</div>
+              <div className="text-base text-gray-500 mt-1">{formatDate(bestLifts?.best_bench?.date)}</div>
+              <div className="text-base text-gray-600 truncate">{bestLifts?.best_bench?.meet_name || '-'}</div>
             </div>
             <div className="flex gap-1.5">
               {successRates?.bench && (
@@ -436,15 +556,15 @@ export function LifterProfile() {
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-base text-gray-400">Best Deadlift</div>
-              <div className="text-4xl font-bold text-red-400 leading-tight">{formatWeight(profile.best_deadlift_kg)}</div>
+              <div className="text-4xl font-bold text-red-400 leading-tight">{formatWeight(bestLifts?.best_deadlift?.best3_deadlift_kg)}</div>
               {bestLifts?.best_deadlift && renderAttempts(
                 bestLifts.best_deadlift.deadlift1_kg,
                 bestLifts.best_deadlift.deadlift2_kg,
                 bestLifts.best_deadlift.deadlift3_kg,
                 'text-red-400/80'
               )}
-              <div className="text-base text-gray-500 mt-1">{formatDate(profile.best_deadlift_date)}</div>
-              <div className="text-base text-gray-600 truncate">{profile.best_deadlift_meet || '-'}</div>
+              <div className="text-base text-gray-500 mt-1">{formatDate(bestLifts?.best_deadlift?.date)}</div>
+              <div className="text-base text-gray-600 truncate">{bestLifts?.best_deadlift?.meet_name || '-'}</div>
             </div>
             <div className="flex gap-1.5">
               {successRates?.deadlift && (
@@ -498,9 +618,9 @@ export function LifterProfile() {
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-base text-gray-400">Best Total</div>
-              <div className="text-4xl font-bold text-purple-400 leading-tight">{formatWeight(profile.best_total_kg)}</div>
-              <div className="text-base text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
-              <div className="text-base text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
+              <div className="text-4xl font-bold text-purple-400 leading-tight">{formatWeight(bestLifts?.best_total?.total_kg)}</div>
+              <div className="text-base text-gray-500 mt-1">{formatDate(bestLifts?.best_total?.date)}</div>
+              <div className="text-base text-gray-600 truncate">{bestLifts?.best_total?.meet_name || '-'}</div>
             </div>
             <div className="flex flex-col gap-1.5">
               <div>
@@ -530,49 +650,6 @@ export function LifterProfile() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Filters */}
-      <div className="card mb-8">
-        <h3 className="text-lg font-semibold text-white mb-4">Filter Competition History</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">Weight Class</label>
-            <select
-              className="input"
-              value={weightClass}
-              onChange={(e) => setWeightClass(e.target.value)}
-            >
-              <option value="">All weight classes</option>
-              {weightClasses.map((wc) => (
-                <option key={wc} value={wc}>{wc} kg</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">Start Date</label>
-            <input
-              type="date"
-              className="input"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">End Date</label>
-            <input
-              type="date"
-              className="input"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
-        </div>
-        {(weightClass || startDate || endDate) && (
-          <div className="mt-3 text-xs text-gray-400">
-            Showing {getFilteredAndSortedCompetitions(profile.competitions).length} of {profile.competitions.length} competitions
-          </div>
-        )}
       </div>
 
       {/* Competition History */}
@@ -640,8 +717,8 @@ export function LifterProfile() {
             </thead>
             <tbody>
               {profile.competitions && profile.competitions.length > 0 ? (
-                getFilteredAndSortedCompetitions(profile.competitions).length > 0 ? (
-                  getFilteredAndSortedCompetitions(profile.competitions).map((comp, idx) => (
+                filteredCompetitions.length > 0 ? (
+                  getSortedCompetitions(filteredCompetitions).map((comp, idx) => (
                     <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50">
                       <td className="py-3 px-4 text-gray-300">
                         {new Date(comp.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
