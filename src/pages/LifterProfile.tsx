@@ -489,42 +489,35 @@ export function LifterProfile() {
 
         {/* Total Card */}
         <div className="card p-3">
-          <div className="text-xs text-gray-400">Best Total</div>
-          <div className="text-2xl font-bold text-purple-400 leading-tight">{formatWeight(profile.best_total_kg)}</div>
-          <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
-          <div className="text-xs text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
-        </div>
-      </div>
-
-      {/* Additional Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="card">
-          <h3 className="text-lg font-semibold text-white mb-3">Weight Classes</h3>
-          <div className="flex flex-wrap gap-2">
-            {profile.weight_classes && profile.weight_classes.length > 0 ? (
-              profile.weight_classes.map((wc: string, idx: number) => (
-                <span key={idx} className="bg-gray-700 px-3 py-1 rounded-full text-sm text-gray-300">
-                  {wc} kg
-                </span>
-              ))
-            ) : (
-              <span className="text-gray-500">No data</span>
-            )}
-          </div>
-        </div>
-
-        <div className="card">
-          <h3 className="text-lg font-semibold text-white mb-3">Equipment</h3>
-          <div className="flex flex-wrap gap-2">
-            {profile.equipment_types && profile.equipment_types.length > 0 ? (
-              profile.equipment_types.map((eq: string, idx: number) => (
-                <span key={idx} className="bg-gray-700 px-3 py-1 rounded-full text-sm text-gray-300">
-                  {eq}
-                </span>
-              ))
-            ) : (
-              <span className="text-gray-500">No data</span>
-            )}
+          <div className="flex gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-gray-400">Best Total</div>
+              <div className="text-2xl font-bold text-purple-400 leading-tight">{formatWeight(profile.best_total_kg)}</div>
+              <div className="text-xs text-gray-500 mt-1">{formatDate(profile.best_total_date)}</div>
+              <div className="text-xs text-gray-600 truncate">{profile.best_total_meet || '-'}</div>
+            </div>
+            <div className="flex flex-col gap-0.5 text-right">
+              <div className="text-[9px] text-gray-500">Classes</div>
+              <div className="flex flex-wrap gap-0.5 justify-end">
+                {profile.weight_classes && profile.weight_classes.length > 0 ? (
+                  profile.weight_classes.slice(0, 3).map((wc: string, idx: number) => (
+                    <span key={idx} className="text-xs text-purple-400">{wc}</span>
+                  ))
+                ) : (
+                  <span className="text-xs text-gray-600">-</span>
+                )}
+              </div>
+              <div className="text-[9px] text-gray-500 mt-1">Equipment</div>
+              <div className="flex flex-wrap gap-0.5 justify-end">
+                {profile.equipment_types && profile.equipment_types.length > 0 ? (
+                  profile.equipment_types.map((eq: string, idx: number) => (
+                    <span key={idx} className="text-xs text-purple-400">{eq}</span>
+                  ))
+                ) : (
+                  <span className="text-xs text-gray-600">-</span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
