@@ -531,8 +531,8 @@ export function Scout() {
     const isCollapsing = expandedLifter === lifterName;
 
     if (isCollapsing && buttonElement) {
-      // Capture the button's viewport position BEFORE any DOM changes
-      const targetViewportTop = buttonElement.getBoundingClientRect().top;
+      // Capture the button's viewport position BEFORE collapse
+      const buttonViewportTop = buttonElement.getBoundingClientRect().top;
 
       // Use flushSync to make state updates synchronous
       flushSync(() => {
@@ -540,15 +540,13 @@ export function Scout() {
         setShowAllCompetitions(false);
       });
 
-      // Immediately adjust scroll to keep button at same viewport position
-      // This runs synchronously after flushSync, before browser paints
-      const currentViewportTop = buttonElement.getBoundingClientRect().top;
-      const drift = currentViewportTop - targetViewportTop;
+      // After collapse, calculate where the button should be scrolled to
+      // to maintain its viewport position
+      const buttonNewDocTop = buttonElement.getBoundingClientRect().top + window.scrollY;
+      const targetScrollY = buttonNewDocTop - buttonViewportTop;
 
-      if (Math.abs(drift) > 1) {
-        // Scroll in the opposite direction of the drift to compensate
-        window.scrollBy(0, drift);
-      }
+      // Scroll to keep button at same viewport position
+      window.scrollTo(0, targetScrollY);
     } else {
       setExpandedLifter(lifterName);
       setShowAllCompetitions(false);
