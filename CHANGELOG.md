@@ -43,56 +43,63 @@ Fixed stale data issue where weight classes were pulled from `lifter_summary` ta
 - Constrained to selected weight class filter when applicable
 - Darker background (`#1e2330`) for visual separation from main content
 
-**Known Issues:**
+#### Scroll Preservation on Expand/Collapse (RESOLVED)
+When expanding or collapsing profiles, the page could jump unexpectedly, especially near the bottom of the page where there's limited scroll room.
 
-#### Scroll Preservation on Collapse (Unresolved)
-When collapsing an expanded profile after scrolling down, the page jumps to the top instead of keeping the cursor position on the chevron button.
+**Solution: CSS Scroll Anchoring**
 
-**Attempted Solutions:**
-1. **useLayoutEffect with ref storage** - Stored button viewport position before collapse, adjusted scroll after DOM update. Result: Page still jumped.
+After trying multiple JavaScript-based approaches that failed, we implemented a CSS-based solution using the browser's native scroll anchoring feature:
 
-2. **flushSync from react-dom** - Forced synchronous state updates to allow immediate scroll adjustment. Result: Page still jumped.
+**Files Modified:**
+- `src/index.css` - Added scroll anchoring utility classes
+- `src/pages/Scout.tsx` - Applied classes to appropriate elements
 
-3. **flushSync + double requestAnimationFrame** - Used flushSync for sync update, then double rAF to ensure scroll adjustment runs after browser layout/paint cycle. Result: Page still jumps.
+**CSS Classes Added:**
+```css
+.scroll-anchor-auto {
+  overflow-anchor: auto;  /* Browser should anchor on this element */
+}
 
-**Current Implementation (not working):**
-```javascript
-const toggleExpandedLifter = (lifterName: string, buttonElement?: HTMLElement) => {
-  const isCollapsing = expandedLifter === lifterName;
-
-  if (isCollapsing && buttonElement) {
-    const targetOffset = buttonElement.getBoundingClientRect().top;
-
-    flushSync(() => {
-      setExpandedLifter(null);
-      setShowAllCompetitions(false);
-    });
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const newOffset = buttonElement.getBoundingClientRect().top;
-        const diff = newOffset - targetOffset;
-        if (Math.abs(diff) > 1) {
-          window.scrollTo({
-            top: window.scrollY + diff,
-            behavior: 'instant'
-          });
-        }
-      });
-    });
-  } else {
-    setExpandedLifter(lifterName);
-    setShowAllCompetitions(false);
-  }
-};
+.scroll-anchor-none {
+  overflow-anchor: none;  /* Browser should NOT anchor on this element */
+}
 ```
 
-**Potential Future Solutions to Try:**
-- CSS `overflow-anchor: none` on scrolling container to disable browser scroll anchoring
-- `element.scrollIntoView({ block: 'nearest' })` on the row element
-- Store absolute document position instead of viewport position
-- Use MutationObserver to detect DOM changes
-- Investigate if React concurrent rendering is causing timing issues
+**Implementation:**
+1. **Anchor elements** (lifter rows/tiles): Added `scroll-anchor-auto` class
+   - These are the elements that should stay in place when content changes
+   - Applied to `<tr>` elements in list view
+   - Applied to lifter card `<div>` elements in tiles view
+   - Applied to the ChevronIcon button
+
+2. **Non-anchor elements** (expanded profiles): Added `scroll-anchor-none` class
+   - These elements should NOT be used as scroll anchors
+   - Applied to expanded profile containers (both loading and loaded states)
+   - Applied in both list view (`<tr>`) and tiles view (`<div>`)
+
+3. **Bottom spacer**: Added invisible 384px spacer at page bottom
+   - Provides scroll room when expanding/collapsing near page bottom
+   - Uses `scroll-anchor-none` so it doesn't interfere with anchoring
+   - Uses `aria-hidden="true"` for accessibility
+
+**Why CSS Scroll Anchoring Works Better:**
+- Native browser feature designed specifically for this use case
+- Handles edge cases (near page bottom, rapid clicking) automatically
+- No timing issues with JavaScript measurements
+- Works consistently across expand, collapse, and profile switching
+- Zero JavaScript overhead
+
+**Previous JavaScript Approaches That Failed:**
+1. `flushSync` + manual scroll adjustment - timing issues
+2. Double `requestAnimationFrame` - still had race conditions
+3. `scrollBy()` compensation - issues near page bottom where scroll room is limited
+4. Manual position calculations - complex edge cases
+
+**Browser Support:**
+- Chrome 56+ (2017)
+- Firefox 66+ (2019)
+- Safari 11+ (2017)
+- Edge 79+ (2020)
 
 ---
 
@@ -683,7 +690,8 @@ Brief description of what this feature does.
 - Expandable lifter profiles in Scout page (accordion behavior)
 - Inline competition history expansion
 - Fixed stale weight class data (now computed from records)
-- Known issue: scroll preservation on collapse not working
+- **Fixed scroll preservation** using CSS scroll anchoring (`overflow-anchor`)
+- Added bottom page spacer for scroll room near page bottom
 
 ### [1.2.0] - December 2024
 - Lifter profile analytics (opener tendencies, jump patterns, make/miss rates)
