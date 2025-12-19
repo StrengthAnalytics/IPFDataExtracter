@@ -528,28 +528,44 @@ export function Scout() {
 
   // Toggle expanded lifter (accordion behavior) with scroll preservation
   const toggleExpandedLifter = (lifterName: string, buttonElement?: HTMLElement) => {
-    const isCollapsing = expandedLifter === lifterName;
-
-    if (isCollapsing && buttonElement) {
-      // Capture the button's viewport position BEFORE collapse
-      const buttonViewportTop = buttonElement.getBoundingClientRect().top;
-
-      // Use flushSync to make state updates synchronous
-      flushSync(() => {
+    if (!buttonElement) {
+      // No element reference, just update state
+      if (expandedLifter === lifterName) {
         setExpandedLifter(null);
         setShowAllCompetitions(false);
-      });
+      } else {
+        setExpandedLifter(lifterName);
+        setShowAllCompetitions(false);
+      }
+      return;
+    }
 
-      // After collapse, calculate where the button should be scrolled to
-      // to maintain its viewport position
-      const buttonNewDocTop = buttonElement.getBoundingClientRect().top + window.scrollY;
-      const targetScrollY = buttonNewDocTop - buttonViewportTop;
+    // Capture button's viewport position BEFORE any DOM changes
+    const buttonRect = buttonElement.getBoundingClientRect();
+    const buttonViewportTop = buttonRect.top;
 
-      // Scroll to keep button at same viewport position
-      window.scrollTo(0, targetScrollY);
-    } else {
-      setExpandedLifter(lifterName);
-      setShowAllCompetitions(false);
+    // Use flushSync to make state updates synchronous
+    flushSync(() => {
+      if (expandedLifter === lifterName) {
+        // Collapsing
+        setExpandedLifter(null);
+        setShowAllCompetitions(false);
+      } else {
+        // Expanding (this also collapses any other expanded profile)
+        setExpandedLifter(lifterName);
+        setShowAllCompetitions(false);
+      }
+    });
+
+    // After state change, the button may have moved in the viewport
+    // Calculate how much it moved and adjust scroll to compensate
+    const newButtonRect = buttonElement.getBoundingClientRect();
+    const newButtonViewportTop = newButtonRect.top;
+    const drift = newButtonViewportTop - buttonViewportTop;
+
+    // Only adjust if there's significant drift
+    if (Math.abs(drift) > 2) {
+      window.scrollBy(0, drift);
     }
   };
 
