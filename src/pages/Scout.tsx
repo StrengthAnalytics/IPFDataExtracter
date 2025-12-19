@@ -532,7 +532,7 @@ export function Scout() {
 
     if (isCollapsing && buttonElement) {
       // Capture the button's viewport position BEFORE any DOM changes
-      const targetOffset = buttonElement.getBoundingClientRect().top;
+      const targetViewportTop = buttonElement.getBoundingClientRect().top;
 
       // Use flushSync to make state updates synchronous
       flushSync(() => {
@@ -540,19 +540,15 @@ export function Scout() {
         setShowAllCompetitions(false);
       });
 
-      // Double requestAnimationFrame ensures we run after browser layout & paint
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const newOffset = buttonElement.getBoundingClientRect().top;
-          const diff = newOffset - targetOffset;
-          if (Math.abs(diff) > 1) {
-            window.scrollTo({
-              top: window.scrollY + diff,
-              behavior: 'instant'
-            });
-          }
-        });
-      });
+      // Immediately adjust scroll to keep button at same viewport position
+      // This runs synchronously after flushSync, before browser paints
+      const currentViewportTop = buttonElement.getBoundingClientRect().top;
+      const drift = currentViewportTop - targetViewportTop;
+
+      if (Math.abs(drift) > 1) {
+        // Scroll in the opposite direction of the drift to compensate
+        window.scrollBy(0, drift);
+      }
     } else {
       setExpandedLifter(lifterName);
       setShowAllCompetitions(false);
@@ -915,7 +911,7 @@ export function Scout() {
     // Loading state
     if (isLoadingProfile) {
       return (
-        <tr>
+        <tr className="scroll-anchor-none">
           <td colSpan={7} className="py-2 px-2">
             <div className="bg-gray-850 rounded-lg p-4 border border-gray-700" style={{ backgroundColor: '#1e2330' }}>
               <div className="flex items-center gap-2 text-gray-400">
@@ -931,7 +927,7 @@ export function Scout() {
     if (!expandedProfile) return null;
 
     return (
-      <tr>
+      <tr className="scroll-anchor-none">
         <td colSpan={7} className="py-2 px-2">
           <div className="rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500" style={{ backgroundColor: '#1e2330' }}>
             {/* Compact header - just filter info */}
@@ -1183,7 +1179,7 @@ export function Scout() {
     // Loading state
     if (isLoadingProfile) {
       return (
-        <div className="col-span-full rounded-lg p-4 border border-gray-700" style={{ backgroundColor: '#1e2330' }}>
+        <div className="col-span-full scroll-anchor-none rounded-lg p-4 border border-gray-700" style={{ backgroundColor: '#1e2330' }}>
           <div className="flex items-center gap-2 text-gray-400">
             <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
             <span>Loading profile...</span>
@@ -1195,7 +1191,7 @@ export function Scout() {
     if (!expandedProfile) return null;
 
     return (
-      <div className="col-span-full rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500" style={{ backgroundColor: '#1e2330' }}>
+      <div className="col-span-full scroll-anchor-none rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500" style={{ backgroundColor: '#1e2330' }}>
         {/* Compact header - just filter info */}
         {(weightClass || filteredExpandedCompetitions.length !== expandedProfile.competitions.length) && (
           <div className="flex items-center justify-between mb-3 text-sm">
