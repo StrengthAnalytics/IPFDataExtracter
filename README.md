@@ -16,6 +16,13 @@ Fast, fuzzy search across 40,000+ powerlifters with autocomplete. Search by name
 ### 🏋️ Advanced Scouting & Comparison
 Compare up to 10 lifters side-by-side with powerful analytics:
 
+**Expandable Lifter Profiles (NEW in v1.3.0):**
+- Click the chevron arrow next to any lifter name to expand their full profile inline
+- View best lifts, success rates, opener tendencies, and jump patterns without leaving the page
+- Competition history expands inline with "Show all competitions" option
+- Accordion behavior - only one lifter expanded at a time
+- Perfect for following a competition flight and quickly analyzing each lifter
+
 **Data Aggregation Modes:**
 - **By Lift**: Cherry-pick best result for each lift across all competitions
 - **By Comp**: View all lifts from the competition with best total or IPF GL score (default)
@@ -567,7 +574,14 @@ For issues, questions, or feature requests:
 
 **Latest Features (December 2024):**
 
-**Lifter Profile Analytics:**
+**Scout Page - Expandable Profiles (v1.3.0):**
+- ✅ **Inline Profile Expansion** - Click chevron to view full lifter profile without leaving Scout page
+- ✅ **Accordion Behavior** - Only one lifter expanded at a time for clean UX
+- ✅ **Inline Competition History** - "Show all competitions" expands inline instead of new page
+- ✅ **Dynamic Weight Classes** - Weight class data computed from actual records (fixes stale data)
+- ⚠️ **Known Issue** - Scroll preservation when collapsing not working (page jumps to top)
+
+**Lifter Profile Analytics (v1.2.0):**
 - ✅ **Attempt Breakdown** - Shows all 3 attempts from best performance with failed lifts struck through
 - ✅ **Opener Tendencies** - Average opener % for each lift with consistency range (min-max)
 - ✅ **Jump Patterns** - Average weight jumps between attempts (1st→2nd, 2nd→3rd)
