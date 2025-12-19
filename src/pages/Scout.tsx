@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { flushSync } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
 import { useToast } from '../components/Toast';
@@ -526,46 +525,15 @@ export function Scout() {
       .finally(() => setIsLoadingProfile(false));
   }, [expandedLifter]);
 
-  // Toggle expanded lifter (accordion behavior) with scroll preservation
-  const toggleExpandedLifter = (lifterName: string, buttonElement?: HTMLElement) => {
-    if (!buttonElement) {
-      // No element reference, just update state
-      if (expandedLifter === lifterName) {
-        setExpandedLifter(null);
-        setShowAllCompetitions(false);
-      } else {
-        setExpandedLifter(lifterName);
-        setShowAllCompetitions(false);
-      }
-      return;
-    }
-
-    // Capture button's viewport position BEFORE any DOM changes
-    const buttonRect = buttonElement.getBoundingClientRect();
-    const buttonViewportTop = buttonRect.top;
-
-    // Use flushSync to make state updates synchronous
-    flushSync(() => {
-      if (expandedLifter === lifterName) {
-        // Collapsing
-        setExpandedLifter(null);
-        setShowAllCompetitions(false);
-      } else {
-        // Expanding (this also collapses any other expanded profile)
-        setExpandedLifter(lifterName);
-        setShowAllCompetitions(false);
-      }
-    });
-
-    // After state change, the button may have moved in the viewport
-    // Calculate how much it moved and adjust scroll to compensate
-    const newButtonRect = buttonElement.getBoundingClientRect();
-    const newButtonViewportTop = newButtonRect.top;
-    const drift = newButtonViewportTop - buttonViewportTop;
-
-    // Only adjust if there's significant drift
-    if (Math.abs(drift) > 2) {
-      window.scrollBy(0, drift);
+  // Toggle expanded lifter (accordion behavior)
+  // Relies on CSS overflow-anchor for scroll preservation
+  const toggleExpandedLifter = (lifterName: string) => {
+    if (expandedLifter === lifterName) {
+      setExpandedLifter(null);
+      setShowAllCompetitions(false);
+    } else {
+      setExpandedLifter(lifterName);
+      setShowAllCompetitions(false);
     }
   };
 
@@ -897,14 +865,14 @@ export function Scout() {
   };
 
   // Chevron icon for expand/collapse
-  const ChevronIcon = ({ expanded, onToggle }: { expanded: boolean; onToggle: (el: HTMLElement) => void }) => (
+  const ChevronIcon = ({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) => (
     <button
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        onToggle(e.currentTarget as HTMLElement);
+        onToggle();
       }}
-      className="p-1 hover:bg-gray-700 rounded transition-colors"
+      className="p-1 hover:bg-gray-700 rounded transition-colors scroll-anchor-auto"
       title={expanded ? 'Collapse profile' : 'Expand profile'}
     >
       <svg
@@ -1802,11 +1770,11 @@ export function Scout() {
             <tbody>
               {getSortedData().map((lifter) => (
                 <React.Fragment key={lifter.name}>
-                  <tr className={`border-b border-gray-800 hover:bg-gray-800/50 ${expandedLifter === lifter.name ? 'bg-gray-800/30' : ''}`}>
+                  <tr className={`border-b border-gray-800 hover:bg-gray-800/50 scroll-anchor-auto ${expandedLifter === lifter.name ? 'bg-gray-800/30' : ''}`}>
                     <td className="py-2 px-1">
                       <ChevronIcon
                         expanded={expandedLifter === lifter.name}
-                        onToggle={(el) => toggleExpandedLifter(lifter.name, el)}
+                        onToggle={() => toggleExpandedLifter(lifter.name)}
                       />
                     </td>
                     <td className="py-2 px-2">
@@ -1898,7 +1866,7 @@ export function Scout() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {getSortedData().map((lifter) => (
                 <React.Fragment key={lifter.name}>
-                  <div className={`bg-gray-800 rounded-lg p-4 border transition-colors ${expandedLifter === lifter.name ? 'border-primary-500' : 'border-gray-700 hover:border-primary-500'}`}>
+                  <div className={`bg-gray-800 rounded-lg p-4 border transition-colors scroll-anchor-auto ${expandedLifter === lifter.name ? 'border-primary-500' : 'border-gray-700 hover:border-primary-500'}`}>
                     <div className="flex items-start justify-between mb-1">
                       <a
                         href={`/lifter/${encodeURIComponent(lifter.name)}`}
@@ -1910,7 +1878,7 @@ export function Scout() {
                       </a>
                       <ChevronIcon
                         expanded={expandedLifter === lifter.name}
-                        onToggle={(el) => toggleExpandedLifter(lifter.name, el)}
+                        onToggle={() => toggleExpandedLifter(lifter.name)}
                       />
                     </div>
                     <div className="text-xs text-gray-500 mb-3">Meets: {lifter.total_competitions}</div>
