@@ -4,6 +4,98 @@ All notable features and improvements to IPF Data Extracter.
 
 > **Note**: When adding new features, update this file with implementation details to help future development.
 
+## [1.3.0] - December 2024
+
+### 🔍 Expandable Lifter Profiles in Scout Page
+
+Major update adding inline expandable profiles to the Scout page for quick lifter analysis during competitions.
+
+**Files Modified:**
+- `src/pages/Scout.tsx` - Added expandable profile feature with accordion behavior
+- `src/pages/LifterProfile.tsx` - Fixed stale weight class data computation
+
+**New Features:**
+
+#### 1. Expandable Lifter Profiles (Accordion)
+Click the chevron arrow next to any lifter name to expand their full profile inline:
+- **Best Lifts**: Squat, Bench, Deadlift with attempt breakdowns
+- **Success Rates**: Make/miss rates for 1st, 2nd, 3rd attempts (color-coded)
+- **Opener Tendencies**: Average opener percentage with min/max range
+- **Jump Patterns**: Weight increases between attempts (1st→2nd, 2nd→3rd)
+- **Competition History**: Recent competitions with inline expansion option
+- **Accordion Behavior**: Only one lifter can be expanded at a time
+
+#### 2. Inline Competition History
+- "Show all competitions" now expands inline instead of opening new page
+- View all competitions without leaving the Scout page
+- Cleaner workflow for scouting during live competitions
+
+#### 3. Dynamic Weight Class & Equipment Computation
+Fixed stale data issue where weight classes were pulled from `lifter_summary` table instead of actual competition records:
+- Weight classes now computed dynamically from `lifter_records` via competitions array
+- Equipment types also computed from actual records
+- Ensures accuracy when lifters have recent weight class changes
+
+**Technical Details:**
+- ChevronIcon component with rotation animation for expand/collapse state
+- Profile data fetched on expand using existing `getLifterProfile` API
+- Loading skeleton shown while profile loads
+- Constrained to selected weight class filter when applicable
+- Darker background (`#1e2330`) for visual separation from main content
+
+**Known Issues:**
+
+#### Scroll Preservation on Collapse (Unresolved)
+When collapsing an expanded profile after scrolling down, the page jumps to the top instead of keeping the cursor position on the chevron button.
+
+**Attempted Solutions:**
+1. **useLayoutEffect with ref storage** - Stored button viewport position before collapse, adjusted scroll after DOM update. Result: Page still jumped.
+
+2. **flushSync from react-dom** - Forced synchronous state updates to allow immediate scroll adjustment. Result: Page still jumped.
+
+3. **flushSync + double requestAnimationFrame** - Used flushSync for sync update, then double rAF to ensure scroll adjustment runs after browser layout/paint cycle. Result: Page still jumps.
+
+**Current Implementation (not working):**
+```javascript
+const toggleExpandedLifter = (lifterName: string, buttonElement?: HTMLElement) => {
+  const isCollapsing = expandedLifter === lifterName;
+
+  if (isCollapsing && buttonElement) {
+    const targetOffset = buttonElement.getBoundingClientRect().top;
+
+    flushSync(() => {
+      setExpandedLifter(null);
+      setShowAllCompetitions(false);
+    });
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const newOffset = buttonElement.getBoundingClientRect().top;
+        const diff = newOffset - targetOffset;
+        if (Math.abs(diff) > 1) {
+          window.scrollTo({
+            top: window.scrollY + diff,
+            behavior: 'instant'
+          });
+        }
+      });
+    });
+  } else {
+    setExpandedLifter(lifterName);
+    setShowAllCompetitions(false);
+  }
+};
+```
+
+**Potential Future Solutions to Try:**
+- CSS `overflow-anchor: none` on scrolling container to disable browser scroll anchoring
+- `element.scrollIntoView({ block: 'nearest' })` on the row element
+- Store absolute document position instead of viewport position
+- Use MutationObserver to detect DOM changes
+- Investigate if React concurrent rendering is causing timing issues
+
+---
+
 ## [1.2.0] - December 2024
 
 ### 📊 Lifter Profile Analytics & Search Enhancements
@@ -586,6 +678,12 @@ Brief description of what this feature does.
 ---
 
 ## Version History
+
+### [1.3.0] - December 2024
+- Expandable lifter profiles in Scout page (accordion behavior)
+- Inline competition history expansion
+- Fixed stale weight class data (now computed from records)
+- Known issue: scroll preservation on collapse not working
 
 ### [1.2.0] - December 2024
 - Lifter profile analytics (opener tendencies, jump patterns, make/miss rates)

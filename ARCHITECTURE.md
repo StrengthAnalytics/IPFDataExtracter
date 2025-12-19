@@ -136,6 +136,58 @@ Render comparison table with sortable columns
 - `src/pages/Scout.tsx:93-146` - Sorting logic
 - `src/services/supabaseApi.ts:182-247` - Comparison API
 
+### 2b. Scout Page - Expandable Profile Flow (v1.3.0)
+
+```
+User clicks chevron arrow next to lifter name
+         ↓
+toggleExpandedLifter(lifterName, buttonElement)
+  - If same lifter: collapse (accordion behavior)
+  - If different lifter: expand new, collapse previous
+         ↓
+setExpandedLifter(lifterName) triggers useEffect
+         ↓
+api.getLifterProfile(expandedLifter)
+         ↓
+Fetch full profile data:
+  - Best lifts with attempt breakdowns
+  - Competition history
+  - Opener tendencies, jump patterns, success rates
+         ↓
+Render inline expanded profile:
+  - Best lifts grid (Squat/Bench/Deadlift)
+  - Success rates (1st/2nd/3rd attempt)
+  - Opener tendencies per lift
+  - Jump patterns per lift
+  - Competition history (collapsible)
+         ↓
+User clicks chevron again to collapse
+         ↓
+Scroll preservation attempt (KNOWN ISSUE - not working):
+  - Store button viewport position before collapse
+  - Use flushSync for synchronous state update
+  - Double requestAnimationFrame for timing
+  - Scroll adjustment to maintain position
+  - Result: Page still jumps to top
+```
+
+**Key Components:**
+- `ChevronIcon` - Rotating arrow button for expand/collapse
+- `expandedLifter` state - Tracks which lifter is expanded (null = none)
+- `expandedProfile` state - Stores fetched profile data
+- `showAllCompetitions` state - Controls inline competition list expansion
+
+**Technical Details:**
+- Accordion behavior: Only one lifter expanded at a time
+- Profile filtered by selected weight class when applicable
+- Weight classes computed dynamically from `competitions` array (not stale `lifter_summary`)
+- Background color `#1e2330` for visual separation
+- Loading skeleton shown during profile fetch
+
+**Known Issue - Scroll Preservation:**
+When collapsing after scrolling down, the page jumps to top instead of keeping cursor on chevron.
+Attempted solutions documented in CHANGELOG.md v1.3.0.
+
 ### 3. Lifter Profile Page Flow
 
 ```
@@ -236,6 +288,12 @@ weightClass: string                // Weight class filter
 sortColumn: SortColumn             // Current sort column
 sortDirection: SortDirection       // 'asc' | 'desc'
 isLoading: boolean                 // Loading state
+
+// Expandable profile state (v1.3.0)
+expandedLifter: string | null      // Currently expanded lifter name
+expandedProfile: LifterProfile | null // Fetched profile data
+isLoadingProfile: boolean          // Profile loading state
+showAllCompetitions: boolean       // Inline competition expansion
 ```
 
 **Key Features:**
@@ -244,6 +302,8 @@ isLoading: boolean                 // Loading state
 - Sortable columns (click headers)
 - Dynamic date range filtering
 - Weight class filtering
+- **Expandable profiles** (v1.3.0) - Inline profile view with accordion behavior
+- **Inline competition history** (v1.3.0) - Expand competitions without leaving page
 
 **useEffect Dependencies:**
 ```typescript
@@ -251,6 +311,13 @@ useEffect(() => {
   // Fetch comparison data
 }, [selectedLifters, startDate, endDate, weightClass]);
 // Auto-triggers when ANY dependency changes
+
+// Expanded profile fetch (v1.3.0)
+useEffect(() => {
+  if (expandedLifter) {
+    api.getLifterProfile(expandedLifter).then(setExpandedProfile);
+  }
+}, [expandedLifter]);
 ```
 
 #### 3. LifterProfile Page
