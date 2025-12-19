@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { flushSync } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import { LifterSearch } from '../components/LifterSearch';
 import { useToast } from '../components/Toast';
@@ -526,33 +525,12 @@ export function Scout() {
       .finally(() => setIsLoadingProfile(false));
   }, [expandedLifter]);
 
-  // Toggle expanded lifter (accordion behavior) with scroll preservation
-  const toggleExpandedLifter = (lifterName: string, buttonElement?: HTMLElement) => {
-    const isCollapsing = expandedLifter === lifterName;
-
-    if (isCollapsing && buttonElement) {
-      // Capture the button's viewport position BEFORE any DOM changes
-      const targetOffset = buttonElement.getBoundingClientRect().top;
-
-      // Use flushSync to make state updates synchronous
-      flushSync(() => {
-        setExpandedLifter(null);
-        setShowAllCompetitions(false);
-      });
-
-      // Double requestAnimationFrame ensures we run after browser layout & paint
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const newOffset = buttonElement.getBoundingClientRect().top;
-          const diff = newOffset - targetOffset;
-          if (Math.abs(diff) > 1) {
-            window.scrollTo({
-              top: window.scrollY + diff,
-              behavior: 'instant'
-            });
-          }
-        });
-      });
+  // Toggle expanded lifter (accordion behavior)
+  // Relies on CSS overflow-anchor for scroll preservation
+  const toggleExpandedLifter = (lifterName: string) => {
+    if (expandedLifter === lifterName) {
+      setExpandedLifter(null);
+      setShowAllCompetitions(false);
     } else {
       setExpandedLifter(lifterName);
       setShowAllCompetitions(false);
@@ -887,14 +865,14 @@ export function Scout() {
   };
 
   // Chevron icon for expand/collapse
-  const ChevronIcon = ({ expanded, onToggle }: { expanded: boolean; onToggle: (el: HTMLElement) => void }) => (
+  const ChevronIcon = ({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) => (
     <button
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        onToggle(e.currentTarget as HTMLElement);
+        onToggle();
       }}
-      className="p-1 hover:bg-gray-700 rounded transition-colors"
+      className="p-1 hover:bg-gray-700 rounded transition-colors scroll-anchor-auto"
       title={expanded ? 'Collapse profile' : 'Expand profile'}
     >
       <svg
@@ -915,7 +893,7 @@ export function Scout() {
     // Loading state
     if (isLoadingProfile) {
       return (
-        <tr>
+        <tr className="scroll-anchor-none">
           <td colSpan={7} className="py-2 px-2">
             <div className="bg-gray-850 rounded-lg p-4 border border-gray-700" style={{ backgroundColor: '#1e2330' }}>
               <div className="flex items-center gap-2 text-gray-400">
@@ -931,7 +909,7 @@ export function Scout() {
     if (!expandedProfile) return null;
 
     return (
-      <tr>
+      <tr className="scroll-anchor-none">
         <td colSpan={7} className="py-2 px-2">
           <div className="rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500" style={{ backgroundColor: '#1e2330' }}>
             {/* Compact header - just filter info */}
@@ -1183,7 +1161,7 @@ export function Scout() {
     // Loading state
     if (isLoadingProfile) {
       return (
-        <div className="col-span-full rounded-lg p-4 border border-gray-700" style={{ backgroundColor: '#1e2330' }}>
+        <div className="col-span-full scroll-anchor-none rounded-lg p-4 border border-gray-700" style={{ backgroundColor: '#1e2330' }}>
           <div className="flex items-center gap-2 text-gray-400">
             <div className="animate-spin h-5 w-5 border-2 border-primary-500 border-t-transparent rounded-full"></div>
             <span>Loading profile...</span>
@@ -1195,7 +1173,7 @@ export function Scout() {
     if (!expandedProfile) return null;
 
     return (
-      <div className="col-span-full rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500" style={{ backgroundColor: '#1e2330' }}>
+      <div className="col-span-full scroll-anchor-none rounded-lg p-4 border border-gray-700 border-l-4 border-l-primary-500" style={{ backgroundColor: '#1e2330' }}>
         {/* Compact header - just filter info */}
         {(weightClass || filteredExpandedCompetitions.length !== expandedProfile.competitions.length) && (
           <div className="flex items-center justify-between mb-3 text-sm">
@@ -1792,11 +1770,11 @@ export function Scout() {
             <tbody>
               {getSortedData().map((lifter) => (
                 <React.Fragment key={lifter.name}>
-                  <tr className={`border-b border-gray-800 hover:bg-gray-800/50 ${expandedLifter === lifter.name ? 'bg-gray-800/30' : ''}`}>
+                  <tr className={`border-b border-gray-800 hover:bg-gray-800/50 scroll-anchor-auto ${expandedLifter === lifter.name ? 'bg-gray-800/30' : ''}`}>
                     <td className="py-2 px-1">
                       <ChevronIcon
                         expanded={expandedLifter === lifter.name}
-                        onToggle={(el) => toggleExpandedLifter(lifter.name, el)}
+                        onToggle={() => toggleExpandedLifter(lifter.name)}
                       />
                     </td>
                     <td className="py-2 px-2">
@@ -1888,7 +1866,7 @@ export function Scout() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {getSortedData().map((lifter) => (
                 <React.Fragment key={lifter.name}>
-                  <div className={`bg-gray-800 rounded-lg p-4 border transition-colors ${expandedLifter === lifter.name ? 'border-primary-500' : 'border-gray-700 hover:border-primary-500'}`}>
+                  <div className={`bg-gray-800 rounded-lg p-4 border transition-colors scroll-anchor-auto ${expandedLifter === lifter.name ? 'border-primary-500' : 'border-gray-700 hover:border-primary-500'}`}>
                     <div className="flex items-start justify-between mb-1">
                       <a
                         href={`/lifter/${encodeURIComponent(lifter.name)}`}
@@ -1900,7 +1878,7 @@ export function Scout() {
                       </a>
                       <ChevronIcon
                         expanded={expandedLifter === lifter.name}
-                        onToggle={(el) => toggleExpandedLifter(lifter.name, el)}
+                        onToggle={() => toggleExpandedLifter(lifter.name)}
                       />
                     </div>
                     <div className="text-xs text-gray-500 mb-3">Meets: {lifter.total_competitions}</div>
@@ -2013,6 +1991,9 @@ export function Scout() {
           <p className="text-gray-400">Search and add lifters to begin comparing their performances</p>
         </div>
       )}
+
+      {/* Spacer to provide scroll room for expand/collapse near bottom of page */}
+      <div className="h-96 scroll-anchor-none" aria-hidden="true" />
     </div>
   );
 }
