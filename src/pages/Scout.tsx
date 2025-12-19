@@ -1991,6 +1991,9 @@ export function Scout() {
           <p className="text-gray-400">Search and add lifters to begin comparing their performances</p>
         </div>
       )}
+
+      {/* Spacer to provide scroll room for expand/collapse near bottom of page */}
+      <div className="h-96 scroll-anchor-none" aria-hidden="true" />
     </div>
   );
 }
